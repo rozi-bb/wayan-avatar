@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wayan — Pratinjau Animasi</title>
+<style>
+  :root { --bg: #1d1d1d; --panel: #2a2a2a; --text: #f2f2f2; --muted: #a8a8a8; --accent: #f5bf03; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px system-ui, sans-serif; }
+  main { display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; justify-content: center; }
+  canvas { width: 360px; max-width: 100%; aspect-ratio: 2 / 3; background: #282828; border-radius: 12px; display: block; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 14px; width: 320px; max-width: 100%; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 8px; }
+  h2:first-child { margin-top: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { background: #3a3a3a; color: var(--text); border: 0; border-radius: 8px; padding: 8px 10px; font: inherit; cursor: pointer; }
+  button.on { background: var(--accent); color: #1d1d1d; font-weight: 700; }
+  input[type=range] { width: 100%; }
+  .val { color: var(--accent); font-weight: 700; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 10px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<main>
+  <canvas id="c" width="720" height="1080"></canvas>
+  <div class="panel">
+    <h2>Ekspresi</h2>
+    <div class="row" id="expr"></div>
+
+    <h2>Viseme <span class="val" id="vlabel">0 · Rest</span></h2>
+    <input id="viseme" type="range" min="0" max="21" step="1" value="0">
+
+    <h2>Bicara</h2>
+    <div class="row">
+      <button id="talk">talking: off</button>
+      <button id="demo">Demo bicara</button>
+    </div>
+
+    <p class="hint">Gerakkan cursor di atas Wayan: matanya mengikuti.
+      Kedip otomatis tiap ±4 detik, napas tiap 2 detik.
+      Akun Rive gratis menampilkan splash hitam ±3 detik di awal.</p>
+  </div>
+</main>
+
+<script src="https://unpkg.com/@rive-app/canvas@2.44.0"></script>
+<script>
+  // index = Azure viseme ID (0-21), value = mouth group drawn for it
+  const MOUTH = ["Rest","AH","AA","OH","EH","ER","EE","OO","AH_Clean","AA_Clean","OH",
+                 "AA","KG","OH","DT","SS","SH","DT","FV","DT","KG","MBP"];
+  const EXPRESSIONS = ["netral", "senyum", "kaget", "sedih", "ketawa"];
+
+  const canvas = document.getElementById("c");
+  let vm = null;
+
+  // Browsers block fetching wayan.riv from a file:// page, which leaves the canvas empty.
+  const warn = (msg) => {
+    const p = document.createElement("p");
+    p.style.cssText = "background:#7a2e2a;color:#fff;padding:10px 14px;margin:0;font-weight:600";
+    p.textContent = msg;
+    document.body.prepend(p);
+  };
+  if (location.protocol === "file:") {
+    warn("Halaman ini dibuka dari file. Jalankan server di folder project (python3 -m http.server 8777) " +
+         "lalu buka http://127.0.0.1:8777/web/preview.html");
+  }
+
+  const r = new rive.Rive({
+    src: "wayan.riv",
+    canvas,
+    stateMachine: "State Machine 1",
+    autoplay: true,
+    autoBind: true,
+    onLoad: () => {
+      r.resizeDrawingSurfaceToCanvas();
+      vm = r.viewModelInstance;
+    },
+    onLoadError: () => warn("Gagal memuat wayan.riv."),
+  });
+
+  const set = (name, value) => { if (vm) vm.number(name).value = value; };
+
+  // Expression buttons
+  const exprRow = document.getElementById("expr");
+  EXPRESSIONS.forEach((label, i) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.onclick = () => {
+      set("expression", i);
+      [...exprRow.children].forEach((c, j) => c.classList.toggle("on", j === i));
+    };
+    if (i === 0) b.classList.add("on");
+    exprRow.append(b);
+  });
+
+  // Viseme slider
+  const slider = document.getElementById("viseme");
+  const vlabel = document.getElementById("vlabel");
+  const showViseme = (id) => {
+    slider.value = id;
+    vlabel.textContent = id + " · " + MOUTH[id];
+    set("visemeId", id);
+  };
+  slider.oninput = () => showViseme(Number(slider.value));
+
+  // Talking toggle
+  const talkBtn = document.getElementById("talk");
+  let talking = false;
+  const setTalking = (on) => {
+    talking = on;
+    if (vm) vm.boolean("talking").value = on;
+    talkBtn.textContent = "talking: " + (on ? "on" : "off");
+    talkBtn.classList.toggle("on", on);
+  };
+  talkBtn.onclick = () => setTalking(!talking);
+
+  // Fake speech: "Hello there, how are you" as a rough viseme sequence, ~90 ms each
+  const SAMPLE = [12,4,14,8,0, 17,4,5,0, 12,9,0, 2,5,0, 6,7,0];
+  document.getElementById("demo").onclick = async () => {
+    setTalking(true);
+    for (const id of SAMPLE) { showViseme(id); await new Promise((ok) => setTimeout(ok, 90)); }
+    showViseme(0);
+    setTalking(false);
+  };
+
+  // Eyes follow the cursor
+  window.addEventListener("pointermove", (e) => {
+    const box = canvas.getBoundingClientRect();
+    const cx = box.left + box.width / 2, cy = box.top + box.height * 0.3;
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    set("lookX", clamp((e.clientX - cx) / (box.width * 0.6)));
+    set("lookY", clamp((e.clientY - cy) / (box.height * 0.5)));
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 900" width="600" height="900" font-family="system-ui, sans-serif">
+  <rect width="600" height="900" fill="#282828"/>
+  <image href="../assets/vector/wayan_master.svg" xlink:href="../assets/vector/wayan_master.svg" x="43.5" y="60" width="513" height="780" opacity="0.55"/>
+  <defs>
+    <marker id="tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff3d7f"/></marker>
+  </defs>
+  <g stroke="#ff3d7f" stroke-width="7" stroke-linecap="round" fill="none" marker-end="url(#tip)">
+    <line x1="302" y1="551" x2="302" y2="442"/>
+    <line x1="205" y1="445" x2="178" y2="512"/>
+    <line x1="178" y1="512" x2="150" y2="580"/>
+    <line x1="397" y1="445" x2="424" y2="512"/>
+    <line x1="424" y1="512" x2="452" y2="580"/>
+  </g>
+  <g fill="#ffffff" stroke="#ff3d7f" stroke-width="3">
+    <circle cx="302" cy="551" r="7"/><circle cx="302" cy="442" r="5"/>
+    <circle cx="205" cy="445" r="7"/><circle cx="178" cy="512" r="6"/><circle cx="150" cy="580" r="5"/>
+    <circle cx="397" cy="445" r="7"/><circle cx="424" cy="512" r="6"/><circle cx="452" cy="580" r="5"/>
+  </g>
+  <g font-size="15" font-weight="700" fill="#ffffff" stroke="#282828" stroke-width="4" paint-order="stroke">
+    <text x="312" y="500">1 Spine</text>
+    <text x="30" y="470">2 UpperArm_R</text>
+    <text x="40" y="545">3 Forearm_R</text>
+    <text x="440" y="470">4 UpperArm_L</text>
+    <text x="465" y="545">5 Forearm_L</text>
+  </g>
+  <g font-size="14" fill="#ffffff">
+    <text x="20" y="32" font-size="18" font-weight="700">Panduan bones Wayan (artboard 600 x 900)</text>
+    <text x="20" y="870">Titik besar = awal bone (sendi). Panah = arah bone. _L = kiri Wayan = kanan layar.</text>
+  </g>
+</svg>

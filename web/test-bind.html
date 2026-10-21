@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Wayan bind test</title>
+<style>
+  body { margin: 0; background: #9aa0a6; font: 14px system-ui; }
+  canvas { display: block; width: 300px; height: 450px; }
+  #log { padding: 6px; white-space: pre; }
+</style>
+</head>
+<body>
+<canvas id="c" width="600" height="900"></canvas>
+<div id="log"></div>
+<script src="https://unpkg.com/@rive-app/canvas@2.44.0"></script>
+<script>
+  // Usage: test-bind.html?v=2&e=0&x=0&y=0  (visemeId, expression, lookX, lookY)
+  const q = new URLSearchParams(location.search);
+  const log = (m) => (document.getElementById("log").textContent += m + "\n");
+
+  const r = new rive.Rive({
+    src: "wayan.riv",
+    canvas: document.getElementById("c"),
+    stateMachines: "State Machine 1",
+    autoplay: true,
+    autoBind: true,
+    onLoad: () => {
+      r.resizeDrawingSurfaceToCanvas();
+      const vmi = r.viewModelInstance;
+      if (!vmi) return log("no viewModelInstance");
+      for (const [key, prop] of [["v", "visemeId"], ["e", "expression"], ["x", "lookX"], ["y", "lookY"]]) {
+        if (q.has(key)) {
+          const p = vmi.number(prop);
+          if (!p) { log("missing property " + prop); continue; }
+          p.value = Number(q.get(key));
+          log(prop + " = " + p.value);
+        }
+      }
+    },
+    onLoadError: (e) => log("load error: " + e),
+  });
+</script>
+</body>
+</html>

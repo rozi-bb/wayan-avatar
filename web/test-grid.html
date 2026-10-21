@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Wayan runtime test</title>
+<style>
+  body { margin: 0; background: #1d1d1d; color: #fff; font: 13px system-ui; padding: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  figure { margin: 0; background: #2a2a2a; border-radius: 8px; padding: 4px; text-align: center; }
+  canvas { display: block; width: 100%; aspect-ratio: 2 / 3; }
+  figcaption { padding: 4px; }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script src="https://unpkg.com/@rive-app/canvas@2.44.0"></script>
+<script>
+  // Each case sets FaceVM numbers after load: v=visemeId, e=expression, x=lookX, y=lookY.
+  const cases = [
+    { label: "v0 e0 · senyum diam", v: 0, e: 0 },
+    { label: "v0 e3 · mulut sedih", v: 0, e: 3 },
+    { label: "v7 · OO", v: 7 },
+    { label: "v18 · FV", v: 18 },
+    { label: "v21 · MBP", v: 21 },
+    { label: "lookX 1, lookY -1", v: 0, x: 1, y: -1 },
+  ];
+  const names = { v: "visemeId", e: "expression", x: "lookX", y: "lookY" };
+
+  for (const c of cases) {
+    const fig = document.createElement("figure");
+    const canvas = document.createElement("canvas");
+    canvas.width = 400; canvas.height = 600;
+    const cap = document.createElement("figcaption");
+    cap.textContent = c.label;
+    fig.append(canvas, cap);
+    document.getElementById("grid").append(fig);
+
+    const r = new rive.Rive({
+      src: "wayan.riv",
+      canvas,
+      stateMachines: "State Machine 1",
+      autoplay: true,
+      autoBind: true,
+      onLoad: () => {
+        r.resizeDrawingSurfaceToCanvas();
+        const vmi = r.viewModelInstance;
+        for (const k of Object.keys(names)) {
+          if (k in c) vmi.number(names[k]).value = c[k];
+        }
+      },
+    });
+  }
+</script>
+</body>
+</html>

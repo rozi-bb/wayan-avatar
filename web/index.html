@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wayan</title>
+<style>
+  :root {
+    --bg: #1d1d1d; --stage: #282828; --panel: #2a2a2a; --text: #f2f2f2; --muted: #a8a8a8;
+    --line: #4a4a4a; --accent: #f5bf03; --error: #ff8a80;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .stage { width: 100%; max-width: 420px; background: var(--stage); border-radius: 24px; }
+  canvas { display: block; width: 100%; aspect-ratio: 2 / 3; }
+  .voice { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .voice code { font: 15px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  select { font: inherit; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); max-width: 100%; }
+  .say { display: flex; gap: 12px; width: 100%; }
+  input[type=text] { flex: 1; min-width: 0; font: inherit; font-size: 18px; padding: 12px 16px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  button { font: inherit; padding: 12px 20px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); cursor: pointer; }
+  #speak { background: var(--accent); border-color: var(--accent); color: #1d1d1d; font-weight: 700; }
+  button:disabled { opacity: .45; cursor: default; }
+  .hint { color: var(--muted); font-size: 14px; text-align: center; margin: 0; }
+  .status { min-height: 1.4em; font-size: 14px; margin: 0; text-align: center; }
+  .status.error { color: var(--error); font-weight: 600; }
+  @media (max-width: 520px) { .say { flex-direction: column; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="stage"><canvas id="c" width="840" height="1260"></canvas></div>
+
+  <div class="voice">
+    <code id="voiceId"></code>
+    <select id="voice" aria-label="Suara"></select>
+    <label class="hint" id="localNamesRow"><input type="checkbox" id="localNames" checked>
+      Nama Indonesia (Bali, Wayan, …) diucapkan dengan logat Indonesia</label>
+  </div>
+
+  <div class="say">
+    <input id="text" type="text" maxlength="400" autocomplete="off" aria-label="Teks untuk diucapkan">
+    <button id="speak">Speak</button>
+    <button id="stop" disabled>Stop</button>
+  </div>
+
+  <p class="hint">Tag ekspresi di teks: [senyum] [kaget] [sedih] [netral] [ketawa]</p>
+  <p class="status" id="status"></p>
+</main>
+
+<script src="https://unpkg.com/@rive-app/canvas@2.44.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@1.52.0/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
+<script>
+  // ---- Voices ---------------------------------------------------------------
+  // hd: Azure HD voice -> reads [laughter] in any language and picks the
+  //     emotion up from the text itself. Emotion markers ([happy], [surprised])
+  //     are deliberately not sent: they stretched the words next to them
+  //     ("Hi" 280 -> 600 ms, "Bali" 200 -> 400 ms with odd vowels).
+  // pitch: standard neural voices only (HD voices ignore <prosody>).
+  // tested: viseme output already confirmed for this voice.
+  const VOICES = [
+    { id: "en-US-Andrew:DragonHDLatestNeural", lang: "en-US", hd: true, tested: true,
+      label: "Inggris · Andrew HD — hangat, emosi mengikuti isi kalimat" },
+    { id: "en-us-goldenspark:DragonHDOmniLatestNeural", lang: "en-US", hd: true,
+      label: "Inggris · Goldenspark HD Omni — energik" },
+    { id: "en-US-JasonNeural", lang: "en-US", pitch: "+12%",
+      label: "Inggris · Jason, nada dinaikkan — terdengar lebih muda" },
+    { id: "id-ID-Ardi:DragonHDLatestNeural", lang: "id-ID", hd: true, tested: true,
+      label: "Indonesia · Ardi HD — natural, bisa tertawa" },
+    { id: "id-ID-ArdiNeural", lang: "id-ID", pitch: "+12%",
+      label: "Indonesia · Ardi, nada dinaikkan — terdengar lebih muda" },
+  ];
+  const SAMPLES = {
+    "en-US": "[senyum] Hi! I'm Wayan, from Bali. [kaget] Whoa, you came to visit! [ketawa] Just kidding, I knew you would.",
+    "id-ID": "[senyum] Halo! Aku Wayan dari Bali. [kaget] Wah, kamu datang! [ketawa] Bercanda kok.",
+  };
+
+  // Tag -> FaceVM.expression. Only [ketawa] also changes the audio (an HD laugh).
+  const TAGS = {
+    netral: { expr: 0 }, neutral: { expr: 0 },
+    senyum: { expr: 1 }, smile: { expr: 1 },
+    kaget:  { expr: 2 }, surprised: { expr: 2 },
+    sedih:  { expr: 3 }, sad: { expr: 3 },
+    ketawa: { expr: 4, laugh: true }, laugh: { expr: 4, laugh: true },
+  };
+
+  // ---- Rive -----------------------------------------------------------------
+  const $ = (id) => document.getElementById(id);
+  let vm = null;
+  const rive_ = new rive.Rive({
+    src: "wayan.riv",
+    canvas: $("c"),
+    stateMachine: "State Machine 1",
+    autoplay: true,
+    autoBind: true,
+    onLoad: () => { rive_.resizeDrawingSurfaceToCanvas(); vm = rive_.viewModelInstance; },
+    onLoadError: () => setStatus("Gagal memuat wayan.riv. Buka lewat server.py, bukan dari file.", true),
+  });
+  const setNum = (name, v) => { if (vm) vm.number(name).value = v; };
+  const setTalking = (on) => { if (vm) vm.boolean("talking").value = on; };
+
+  // Gaze. The cursor wins while it is moving over the page. While Wayan talks he
+  // looks straight at you. Otherwise he idles like a Duolingo character: darts
+  // his eyes somewhere, holds, looks back, and waits a few seconds.
+  const gaze = { x: 0, y: 0, tx: 0, ty: 0, speed: 0.15 };
+  const cursor = { inside: false, movedAt: -Infinity };
+  const idle = { until: 0, stops: [] };
+  window.addEventListener("pointermove", (e) => {
+    const box = $("c").getBoundingClientRect();
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    cursor.inside = true;
+    cursor.movedAt = performance.now();
+    gaze.tx = clamp((e.clientX - (box.left + box.width / 2)) / (box.width * 0.6));
+    gaze.ty = clamp((e.clientY - (box.top + box.height * 0.3)) / (box.height * 0.5));
+    gaze.speed = 0.15;
+  });
+  const cursorGone = () => {
+    cursor.inside = false;
+    cursor.movedAt = -Infinity;
+    gaze.tx = gaze.ty = 0; // back to the centre straight away, idle glances follow later
+    gaze.speed = 0.15;
+    idle.until = performance.now() + 2000;
+    idle.stops = [];
+  };
+  document.addEventListener("pointerout", (e) => { if (!e.relatedTarget) cursorGone(); });
+  window.addEventListener("blur", cursorGone);
+
+  // Each glance is one or more [lookX, lookY] stops; y < 0 looks up.
+  const GLANCES = [
+    [[-0.8, 0]], [[0.8, 0]],                 // side
+    [[-0.7, -0.6]], [[0.7, -0.6]],           // up, as if thinking
+    [[-0.6, 0.5]], [[0.6, 0.5]],             // down
+    [[-0.8, 0], [0.8, 0]], [[0.8, 0], [-0.8, 0]], // look around
+  ];
+  function idleGaze(now) {
+    if (now < idle.until) return;
+    let wait;
+    if (idle.stops.length) {
+      [gaze.tx, gaze.ty] = idle.stops.shift();
+      wait = 600 + Math.random() * 800;          // hold the glance
+    } else if (gaze.tx || gaze.ty) {
+      gaze.tx = gaze.ty = 0;
+      wait = 2000 + Math.random() * 3000;        // rest at the centre
+    } else {
+      idle.stops = GLANCES[Math.floor(Math.random() * GLANCES.length)].slice();
+      wait = 0;
+    }
+    gaze.speed = 0.3; // a quick dart, not a slow drift
+    idle.until = now + wait;
+  }
+
+  function ease(now) {
+    const talking = session && session.started && !session.done;
+    if (cursor.inside && now - cursor.movedAt < 3000) {
+      idle.until = now + 1500; // after the cursor stops, wait a little before idling
+      idle.stops = [];
+    } else if (talking) {
+      gaze.tx = gaze.ty = 0;
+      gaze.speed = 0.15;
+      idle.until = now + 1500;
+      idle.stops = [];
+    } else {
+      idleGaze(now);
+    }
+    gaze.x += (gaze.tx - gaze.x) * gaze.speed;
+    gaze.y += (gaze.ty - gaze.y) * gaze.speed;
+    setNum("lookX", gaze.x);
+    setNum("lookY", gaze.y);
+    requestAnimationFrame(ease);
+  }
+  requestAnimationFrame(ease); // first frame runs after the script, once `session` exists
+
+  // ---- UI -------------------------------------------------------------------
+  const setStatus = (msg, isError = false) => { $("status").textContent = msg; $("status").className = "status" + (isError ? " error" : ""); };
+  VOICES.forEach((v, i) => $("voice").add(new Option(v.label + (v.tested ? "" : " (viseme belum diuji)"), i)));
+  const currentVoice = () => VOICES[Number($("voice").value)];
+  // English HD voices can switch accent mid-sentence with <lang>; standard voices can't.
+  const canLocalize = (v) => v.hd && v.lang.startsWith("en");
+  const showVoice = () => {
+    const v = currentVoice();
+    $("voiceId").textContent = v.id;
+    $("localNamesRow").style.visibility = canLocalize(v) ? "visible" : "hidden";
+    if (!$("text").value || Object.values(SAMPLES).includes($("text").value)) $("text").value = SAMPLES[v.lang];
+  };
+  $("voice").onchange = showVoice;
+  showVoice();
+
+  // ---- SSML with tag positions ---------------------------------------------
+  const escapeXml = (s) => s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[c]));
+
+  // Indonesian names an American voice says with the wrong stress ("Bali", "Wayan").
+  const LOCAL_NAMES = /\b(Bali|Wayan|Made|Kadek|Nyoman|Komang|Ketut|Putu|Gede|Ubud|Denpasar|Kuta|Sanur|Nusa|udeng|kamen|Galungan|Nyepi)\b/g;
+  // HD voices guess the language per sentence and read a lone "Hi!" as Indonesian "hii",
+  // so English text is pinned to the voice's language and only the names switch.
+  const inLang = (lang, s) => s.replace(/^(\s*)([\s\S]*?)(\s*)$/,
+    (_, a, body, z) => body ? `${a}<lang xml:lang="${lang}">${body}</lang>${z}` : a + z);
+  const localize = (text, voice) => {
+    if (!canLocalize(voice)) return text;
+    if (!$("localNames").checked) return inLang(voice.lang, text);
+    return text.split(LOCAL_NAMES).map((s, i) => inLang(i % 2 ? "id-ID" : voice.lang, s)).join("");
+  };
+
+  // Returns the SSML and, for each known tag, where its text resumes in the SSML string.
+  // Azure's wordBoundary.textOffset indexes that same string, which is how tags meet audio time.
+  function buildSsml(raw, voice) {
+    const head = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" ` +
+      `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${voice.lang}"><voice name="${voice.id}">` +
+      (voice.pitch ? `<prosody pitch="${voice.pitch}">` : "");
+    const tail = (voice.pitch ? "</prosody>" : "") + "</voice></speak>";
+    let body = "";
+    let plain = 0; // length of spoken text so far, for voices that send no word positions
+    const tags = [];
+    for (const part of raw.split(/(\[[^\]]*\])/)) {
+      const m = part.match(/^\[([^\]]*)\]$/);
+      if (!m) { body += localize(escapeXml(part), voice); plain += part.length; continue; }
+      const tag = TAGS[m[1].trim().toLowerCase()];
+      if (!tag) continue; // unknown tags are dropped, never spoken
+      const before = head.length + body.length;
+      const leading = body.trim() === "";
+      if (voice.hd && tag.laugh) body += " [laughter] ";
+      tags.push({ ...tag, before, leading, plainAt: plain });
+    }
+    tags.forEach((t) => (t.plainFrac = plain ? t.plainAt / plain : 0));
+    return { ssml: head + body + tail, tags };
+  }
+
+  // ---- Speaking -------------------------------------------------------------
+  // Azure's visemes and word times are estimates. On HD voices they keep the
+  // mouth open into silences, report some words up to a second early, and put
+  // the laugh on the word before the actual laugh. So the page plays the audio
+  // itself (Web Audio) and measures its loudness every 10 ms. Synthesis runs
+  // about 3x faster than playback, so the loudness of what is about to be
+  // heard is always known in advance:
+  // - the mouth is closed whenever the audio is silent,
+  // - expressions switch inside the silence just before the next word starts,
+  // - the laugh face covers the laugh that is actually heard.
+  const RATE = 24000;
+  const FRAME_MS = 10;
+  const FRAME = RATE * FRAME_MS / 1000;
+  const SILENT = 150;  // RMS of 16-bit PCM: measured pauses stay under 70, quiet speech is 300+
+  const LEAD_S = 0.25; // audio buffered before playback starts
+  let session = null;
+  let ctx = null;
+
+  async function speak() {
+    stop();
+    const raw = $("text").value.trim();
+    if (!raw) return;
+    const voice = currentVoice();
+    // Created inside the click, otherwise the browser refuses to play it.
+    ctx = ctx || new AudioContext();
+    ctx.resume();
+    setStatus("Menyiapkan suara…");
+    $("speak").disabled = true;
+
+    let auth;
+    try {
+      const res = await fetch("/api/speech-token");
+      auth = await res.json();
+      if (!res.ok) throw new Error(auth.error || res.statusText);
+    } catch (err) {
+      setStatus("Token Azure gagal: " + err.message, true);
+      $("speak").disabled = false;
+      return;
+    }
+
+    const sdk = SpeechSDK;
+    const config = sdk.SpeechConfig.fromAuthorizationToken(auth.token, auth.region);
+    config.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Raw24Khz16BitMonoPcm;
+    const synth = new sdk.SpeechSynthesizer(config, null); // no SDK playback: the page plays it
+    const { ssml, tags } = buildSsml(raw, voice);
+
+    const s = session = {
+      synth, tags, visemes: [], words: [], events: [], env: [], sources: [],
+      pending: [], oddByte: null, receivedMs: 0, synthDone: false, totalMs: 0,
+      started: false, startAt: 0, nextAt: 0, done: false, laughing: false, expr: 0,
+    };
+
+    synth.visemeReceived = (_, e) => s.visemes.push({ ms: e.audioOffset / 1e4, id: e.visemeId });
+    const WORD = sdk.SpeechSynthesisBoundaryType && sdk.SpeechSynthesisBoundaryType.Word;
+    synth.wordBoundary = (_, e) => {
+      if (WORD !== undefined && e.boundaryType !== undefined && e.boundaryType !== WORD) return;
+      s.words.push({ ms: e.audioOffset / 1e4, dur: (e.duration || 0) / 1e4, off: e.textOffset });
+    };
+    synth.synthesizing = (_, e) => { if (session === s && !s.done) addAudio(s, e.result.audioData); };
+
+    synth.speakSsmlAsync(ssml, (result) => {
+      s.synthDone = true;
+      s.totalMs = s.receivedMs;
+      if (result.reason !== sdk.ResultReason.SynthesizingAudioCompleted) {
+        setStatus("Azure gagal: " + (result.errorDetails || result.reason), true);
+        finish(s);
+      } else if (s.visemes.length === 0) {
+        setStatus("Suara ini tidak mengirim viseme, jadi mulut tidak bergerak. Pilih suara lain.", true);
+      }
+      synth.close();
+    }, (err) => { setStatus("Azure gagal: " + err, true); finish(s); });
+  }
+
+  // Queue one chunk of raw PCM right after the previous one and measure its loudness.
+  function addAudio(s, buffer) {
+    let bytes = new Uint8Array(buffer);
+    if (s.oddByte) { const b = new Uint8Array(bytes.length + 1); b[0] = s.oddByte[0]; b.set(bytes, 1); bytes = b; s.oddByte = null; }
+    if (bytes.length % 2) { s.oddByte = bytes.slice(-1); bytes = bytes.slice(0, -1); }
+    if (!bytes.length) return;
+    const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
+
+    for (const v of pcm) {
+      s.pending.push(v);
+      if (s.pending.length === FRAME) {
+        s.env.push(Math.sqrt(s.pending.reduce((sum, x) => sum + x * x, 0) / FRAME));
+        s.pending = [];
+      }
+    }
+
+    const audio = ctx.createBuffer(1, pcm.length, RATE);
+    audio.getChannelData(0).set(Float32Array.from(pcm, (x) => x / 32768));
+    const src = ctx.createBufferSource();
+    src.buffer = audio;
+    src.connect(ctx.destination);
+    const now = ctx.currentTime;
+    if (!s.started) {
+      s.started = true;
+      s.startAt = s.nextAt = now + LEAD_S;
+      setStatus("");
+      $("stop").disabled = false;
+      requestAnimationFrame(() => frame(s));
+    } else if (s.nextAt < now + 0.02) {
+      // The network fell behind playback: resume a moment later and shift the clock with it.
+      const late = now + 0.05 - s.nextAt;
+      s.startAt += late;
+      s.nextAt += late;
+    }
+    src.start(s.nextAt);
+    s.nextAt += audio.duration;
+    s.sources.push(src);
+    s.receivedMs += pcm.length / RATE * 1000;
+  }
+
+  // Milliseconds into the speech that is leaving the speakers right now.
+  function audioNow(s) {
+    const ts = ctx.getOutputTimestamp && ctx.getOutputTimestamp();
+    const at = ts && ts.contextTime > 0 ? ts.contextTime : ctx.currentTime - (ctx.outputLatency || 0);
+    return (at - s.startAt) * 1000;
+  }
+
+  const loudAt = (s, ms) => (s.env[Math.floor(ms / FRAME_MS)] || 0) > SILENT;
+  const loudNear = (s, ms, span) => {
+    for (let t = ms - span; t <= ms + span; t += FRAME_MS) if (loudAt(s, t)) return true;
+    return false;
+  };
+
+  // Silent stretches of at least minMs in the audio measured so far.
+  function silences(s, minMs) {
+    const out = [];
+    let start = null;
+    s.env.forEach((e, i) => {
+      if (e <= SILENT) { if (start === null) start = i * FRAME_MS; return; }
+      if (start !== null && i * FRAME_MS - start >= minMs) out.push({ start, end: i * FRAME_MS });
+      start = null;
+    });
+    if (start !== null && s.synthDone && s.env.length * FRAME_MS - start >= minMs) out.push({ start, end: s.env.length * FRAME_MS });
+    return out;
+  }
+
+  // Stretches where Azure gives no mouth shape (viseme 0), merged.
+  function shapelessRuns(s) {
+    const runs = [];
+    s.visemes.forEach((v, i) => {
+      if (v.id !== 0) return;
+      const end = s.visemes[i + 1] ? s.visemes[i + 1].ms : s.receivedMs;
+      const prev = runs[runs.length - 1];
+      if (prev && Math.abs(prev.end - v.ms) < 1) prev.end = end;
+      else runs.push({ start: v.ms, end });
+    });
+    return runs;
+  }
+
+  // Azure sends offset -1 for some words (the first one, the one after [laughter]
+  // inside <lang>). Such a word sits just before the next word with a real offset;
+  // until that word arrives its offset stays unknown (NaN matches no tag).
+  function wordsWithOffsets(s) {
+    let nextOff = s.synthDone ? Infinity : NaN;
+    return s.words.slice().reverse().map((w) => {
+      if (w.off >= 0) { nextOff = w.off; return w; }
+      return { ...w, off: nextOff - 1 };
+    }).reverse();
+  }
+
+  // Turn tags into timed face changes. Where a tag lands is first estimated from
+  // the word after it (or, for voices that report few words such as id-ID-Ardi
+  // HD, from its share of the text), then corrected against the measured audio.
+  function resolveTags(s) {
+    const words = wordsWithOffsets(s);
+    for (const tag of s.tags) {
+      if (tag.done) continue;
+      if (tag.leading && !tag.laugh) {
+        // The opening face is already on before the first sound.
+        tag.done = true;
+        s.events.push({ ms: -Infinity, run: () => applyExpr(s, tag.expr) });
+        continue;
+      }
+      let target;
+      const next = words.find((w) => w.off >= tag.before);
+      if (next) target = next.ms;
+      else if (s.synthDone) target = guessFromText(s, tag);
+      else continue;
+      if (!s.synthDone && s.receivedMs < target + 1200) continue; // audio around it not measured yet
+      tag.done = true;
+      if (tag.laugh) placeLaugh(s, target);
+      else placeExpr(s, tag.expr, target);
+    }
+    s.events.sort((a, b) => a.ms - b.ms);
+  }
+
+  // Long pauses are laughs and hold no text, so they are left out of the proportion.
+  function guessFromText(s, tag) {
+    const long = silences(s, 700);
+    let guess = tag.plainFrac * (s.totalMs - long.reduce((sum, p) => sum + p.end - p.start, 0));
+    for (const p of long) if (p.start <= guess) guess += p.end - p.start;
+    return guess;
+  }
+
+  // Switch inside a silence near the estimate, just before the sound resumes, so
+  // the new face never lands on the end of the previous words. Tags open sentences,
+  // so a long pause beats a closer comma pause.
+  function placeExpr(s, expr, target) {
+    const dist = (p) => (target < p.start ? p.start - target : target > p.end ? target - p.end : 0);
+    const score = (p) => (p.end - p.start) - dist(p) / 2;
+    const gap = silences(s, 100).filter((p) => dist(p) <= 1000)
+      .reduce((best, p) => (!best || score(p) > score(best) ? p : best), null);
+    const at = gap ? Math.max(gap.start, gap.end - 120) : Math.max(0, target - 60);
+    s.events.push({ ms: at, run: () => applyExpr(s, expr) });
+    return at;
+  }
+
+  // Bursts of sound in the audio measured so far; gaps up to 100 ms are bridged.
+  function sounds(s) {
+    const out = [];
+    let cur = null;
+    s.env.forEach((e, i) => {
+      if (e <= SILENT) return;
+      const t = i * FRAME_MS;
+      if (cur && t - cur.end <= 100) cur.end = t + FRAME_MS;
+      else out.push(cur = { start: t, end: t + FRAME_MS });
+    });
+    return out;
+  }
+
+  // The heard laugh: bursts of sound that are mostly inside long stretches with no
+  // mouth shapes. Near the word after [laughter], take the biggest group of them,
+  // and end the laugh face before the next words start.
+  function placeLaugh(s, target) {
+    const runs = shapelessRuns(s).filter((r) => r.end - r.start >= 300);
+    const all = sounds(s);
+    const bursts = all.filter((g) => {
+      if (g.end < target - 2500 || g.start > target + 300) return false;
+      let loud = 0, shapeless = 0;
+      for (let ms = g.start; ms < g.end; ms += FRAME_MS) {
+        if (!loudAt(s, ms)) continue;
+        loud++;
+        if (runs.some((r) => ms >= r.start && ms < r.end)) shapeless++;
+      }
+      g.n = shapeless;
+      return loud && shapeless / loud >= 0.7;
+    });
+    const groups = [];
+    for (const g of bursts) {
+      const prev = groups[groups.length - 1];
+      if (prev && g.start - prev.end <= 400) { prev.end = g.end; prev.n += g.n; }
+      else groups.push({ ...g });
+    }
+    const laugh = groups.reduce((best, g) => (!best || g.n > best.n ? g : best), null);
+    if (laugh && laugh.n >= 5) {
+      const after = all.find((g) => g.start >= laugh.end);
+      const end = Math.min(laugh.end + 120, after ? after.start - 30 : Infinity);
+      // A laugh settles into a smile rather than snapping back to the previous face.
+      s.events.push({ ms: laugh.start - 40, run: () => { s.laughing = true; applyExpr(s, 4); } });
+      s.events.push({ ms: end, run: () => { s.laughing = false; applyExpr(s, 1); } });
+    } else {
+      // This voice did not laugh out loud: show the face in the pause, then smile.
+      const at = placeExpr(s, 4, target);
+      s.events.push({ ms: at + 800, run: () => applyExpr(s, 1) });
+    }
+  }
+
+  const applyExpr = (s, e) => { s.expr = e; setNum("expression", e); };
+
+  // Azure's shape at time t; where there is sound but no shape yet (shapes trail
+  // the sound by ~100 ms at word starts) use the next shape, else the last one.
+  function visemeFor(s, t) {
+    let id = 0, last = 1;
+    for (const v of s.visemes) { if (v.ms > t) break; id = v.id; if (v.id) last = v.id; }
+    if (id) return id;
+    const soon = s.visemes.find((v) => v.ms > t && v.ms <= t + 250 && v.id);
+    return soon ? soon.id : last;
+  }
+
+  function frame(s) {
+    if (s !== session || s.done) return;
+    const t = audioNow(s);
+    resolveTags(s);
+    while (s.events.length && s.events[0].ms <= t) s.events.shift().run();
+    if (s.synthDone && t >= s.totalMs + 100) { finish(s); return; }
+    let id = 0;
+    if (t >= 0 && loudNear(s, t, 20)) id = s.laughing ? (Math.floor(t / 110) % 2 ? 2 : 1) : visemeFor(s, t);
+    setNum("visemeId", id);
+    setTalking(t >= 0 && !s.laughing && loudNear(s, t, 250));
+    requestAnimationFrame(() => frame(s));
+  }
+
+  function finish(s) {
+    if (s.done) return;
+    s.done = true;
+    s.events = [];
+    s.laughing = false;
+    setNum("visemeId", 0);
+    setTalking(false);
+    $("speak").disabled = false;
+    $("stop").disabled = true;
+    setTimeout(() => { if (session === s || !session || session.done) setNum("expression", 0); }, 1500);
+  }
+
+  function stop() {
+    if (!session || session.done) return;
+    for (const src of session.sources) { try { src.stop(); } catch (_) {} }
+    try { session.synth.close(); } catch (_) {}
+    finish(session);
+  }
+
+  $("speak").onclick = speak;
+  $("stop").onclick = stop;
+  $("text").addEventListener("keydown", (e) => { if (e.key === "Enter") speak(); });
+</script>
+</body>
+</html>

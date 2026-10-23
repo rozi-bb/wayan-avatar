@@ -225,12 +225,14 @@ Aturan:
 - [x] Diuji di browser: keempat aksi tampil, salam 3× berturut-turut benar, aksi berhenti saat bicara dimulai
 - [x] Revisi Rozi (2026-10-22): Salam memakai sabuk & kamen rig sendiri (pose hanya badan atas, dipotong di garis sabuk, `--upper`); isian bahu & leher belakang tetap tampil saat Salam/Silang; `Hair_Cap` mengikuti tepi kepala penuh + tepi gelap saat udeng turun, udeng miring −2°; "Yes!" memakai tekukan siku lebih ringan (naik 15°/−85°, tarik 30°/−72°) supaya lengan baju tidak cekung; tiap aksi mulai dari wajah netral
 - [x] Om Swastiastu versi bone + tukar gambar (2026-10-23): lengan asli naik pakai bone (f0–f19, makin cepat), di f20 (333 ms) diganti `Pose_Salam` (K2, gambar tangan menyatu), badan memantul lalu menunduk, f90 balik ke bone dan turun ke default (2 s). Aksi lain (Udeng, Yes, Silang), `Pose_Silang` dan `HandPush` dihapus atas permintaan Rozi; layer Aksi tinggal `A_Rest` ↔ `A_Salam` (`action` = 1). Halaman web memutar salam sekali setelah splash Rive hilang (+600 ms, senyum saat menunduk) dan membatalkannya begitu `speak()` dipanggil; transisi keluar A_Salam → A_Rest 0 ms supaya pembatalan tidak menumpuk dua lapis transparan. Lembar frame: `assets/preview/salam_k1.html`. Diuji di browser: urutan benar, tidak ada error
+- [x] Jempol 👍 (2026-10-23): `A_Jempol` (`action` = 2, 1,8 s). Lengan kanan naik pakai bone, di f15 tangan bulat diganti tangan jempol hasil Recraft V4.1 (`Hand_R_ThumbUp`, pivot di pergelangan, di balik manset) bersama siku bulat `ElbowThumb_R` dan garis lipatan lengan bawah; jempol memantul (lewat, balik, pop, goyang), badan memantul, kepala mengangguk, lalu turun dengan pergantian balik di f80. Dipicu tag `[jempol]`/`[thumbsup]` di teks (dengan senyum). `A_Rest` mengembalikan tangan, siku dan bahu supaya pembatalan bersih. Lembar frame: `assets/preview/jempol.html`. Keyframe: `scripts/jempol_keys.py`
+- [x] Coba jempol lewat inpaint 2×4 ($0.32): sambungan bahu-lengan-tangan tidak natural, tidak dipakai. Tangan saja via generate V4.1 ($0.14) + vectorize ($0.01)
 - [x] Script: `scripts/salam_keys.py` (tulis ulang keyframe A_Salam, bisa dijalankan ulang) dan `scripts/rive_frames.py` (render frame timeline mana pun ke PNG untuk lembar review, lalu kembalikan pose diam)
 - [x] Coba K1 (pose tengah) lewat Recraft inpaint 2× ($0.16): gagal, telapak selalu menempel. Diganti pose bone
 
 **Gerbang:** Rozi menonton tiap aksi di browser dan setuju sebelum lanjut ke Fase 7.
 
-Biaya Recraft: **$0.27** (+$0.16 percobaan K1 inpaint, gagal). Sebelumnya **$0.11** (vectorize tangan + silang tangan $0.02, inpaint 2 variasi $0.08, vectorize tangan menyatu $0.01).
+Biaya Recraft: **$0.74** (jempol $0.47, percobaan K1 $0.16, sebelumnya $0.11) (vectorize tangan + silang tangan $0.02, inpaint 2 variasi $0.08, vectorize tangan menyatu $0.01).
 
 ---
 

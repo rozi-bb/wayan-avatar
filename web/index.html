@@ -73,17 +73,18 @@
       label: "Indonesia · Ardi, nada dinaikkan — terdengar lebih muda" },
   ];
   const SAMPLES = {
-    "en-US": "[senyum] Hi! I'm Wayan, from Bali. [kaget] Whoa, you came to visit! [ketawa] Just kidding, I knew you would.",
-    "id-ID": "[senyum] Halo! Aku Wayan dari Bali. [kaget] Wah, kamu datang! [ketawa] Bercanda kok.",
+    "en-US": "[senyum] Hi! I'm Wayan, from Bali. [kaget] Whoa, you came to visit! [ketawa] Just kidding, I knew you would. [jempol] Great choice!",
+    "id-ID": "[senyum] Halo! Aku Wayan dari Bali. [kaget] Wah, kamu datang! [ketawa] Bercanda kok. [jempol] Pilihan yang keren!",
   };
 
-  // Tag -> FaceVM.expression. Only [ketawa] also changes the audio (an HD laugh).
+  // Tag -> FaceVM.expression, or a gesture. Only [ketawa] also changes the audio (an HD laugh).
   const TAGS = {
     netral: { expr: 0 }, neutral: { expr: 0 },
     senyum: { expr: 1 }, smile: { expr: 1 },
     kaget:  { expr: 2 }, surprised: { expr: 2 },
     sedih:  { expr: 3 }, sad: { expr: 3 },
     ketawa: { expr: 4, laugh: true }, laugh: { expr: 4, laugh: true },
+    jempol: { expr: 1, gesture: "jempol" }, thumbsup: { expr: 1, gesture: "jempol" },
   };
 
   // ---- Rive -----------------------------------------------------------------
@@ -101,11 +102,13 @@
   const setNum = (name, v) => { if (vm) vm.number(name).value = v; };
   const setTalking = (on) => { if (vm) vm.boolean("talking").value = on; };
 
-  // Om Swastiastu (FaceVM.action = 1, A_Salam, 2 s) plays once when Wayan first
-  // appears. The free Rive runtime shows a black splash for a few seconds after
-  // loading, so wait until sampled canvas pixels stop being opaque black.
-  const SALAM_MS = 2000;
-  const greeting = { timers: [] };
+  // Gestures on the Aksi layer: FaceVM.action picks the timeline, 0 returns to rest.
+  // Om Swastiastu plays once when Wayan first appears; the thumbs-up comes from a
+  // [jempol] tag in the text. The free Rive runtime shows a black splash for a few
+  // seconds after loading, so the greeting waits until sampled canvas pixels stop
+  // being opaque black.
+  const GESTURES = { salam: { action: 1, ms: 2000 }, jempol: { action: 2, ms: 1800 } };
+  const gesture = { timers: [] };
   function greetWhenVisible() {
     const ctx = $("c").getContext("2d");
     const { width: w, height: h } = $("c");
@@ -120,19 +123,30 @@
       if (black()) { seen = true; return; }
       if (!seen && performance.now() - started < 3000) return; // splash not drawn yet (none on paid plans)
       clearInterval(poll);
-      greeting.timers.push(setTimeout(playGreeting, 600));
+      gesture.timers.push(setTimeout(playGreeting, 600));
     }, 150);
   }
   function playGreeting() {
     if (session && !session.done) return; // already talking
-    setNum("action", 1);
-    greeting.timers.push(
-      setTimeout(() => setNum("expression", 1), 450),   // smile into the bow
-      setTimeout(() => { endGreeting(); setNum("expression", 0); }, SALAM_MS));
+    playGesture("salam", () => setNum("expression", 0));
+    gesture.timers.push(setTimeout(() => setNum("expression", 1), 450)); // smile into the bow
   }
-  function endGreeting() {
-    greeting.timers.forEach(clearTimeout);
-    greeting.timers = [];
+  // The state machine only leaves A_Rest, so a gesture that is still playing goes
+  // back to rest for a moment before the next one starts.
+  function playGesture(name, onEnd) {
+    const busy = gesture.timers.length > 0;
+    endGesture();
+    const { action, ms } = GESTURES[name];
+    const start = () => {
+      setNum("action", action);
+      gesture.timers.push(setTimeout(() => { endGesture(); if (onEnd) onEnd(); }, ms));
+    };
+    if (busy) gesture.timers.push(setTimeout(start, 50));
+    else start();
+  }
+  function endGesture() {
+    gesture.timers.forEach(clearTimeout);
+    gesture.timers = [];
     setNum("action", 0);
   }
 
@@ -335,7 +349,7 @@
 
   async function speak() {
     stop();
-    endGreeting();
+    endGesture();
     const raw = $("text").value.trim();
     if (!raw) return;
     const voice = currentVoice();
@@ -489,7 +503,7 @@
       if (tag.leading && !tag.laugh) {
         // The opening face is already on before the first sound.
         tag.done = true;
-        s.events.push({ ms: -Infinity, run: () => applyExpr(s, tag.expr) });
+        s.events.push({ ms: -Infinity, run: () => applyTag(s, tag) });
         continue;
       }
       let target;
@@ -500,7 +514,7 @@
       if (!s.synthDone && s.receivedMs < target + 1200) continue; // audio around it not measured yet
       tag.done = true;
       if (tag.laugh) placeLaugh(s, target);
-      else placeExpr(s, tag.expr, target);
+      else placeTag(s, tag, target);
     }
     s.events.sort((a, b) => a.ms - b.ms);
   }
@@ -517,12 +531,15 @@
   // the new face never lands on the end of the previous words. Tags open sentences,
   // so a long pause beats a closer comma pause.
   function placeExpr(s, expr, target) {
+    return placeTag(s, { expr }, target);
+  }
+  function placeTag(s, tag, target) {
     const dist = (p) => (target < p.start ? p.start - target : target > p.end ? target - p.end : 0);
     const score = (p) => (p.end - p.start) - dist(p) / 2;
     const gap = silences(s, 100).filter((p) => dist(p) <= 1000)
       .reduce((best, p) => (!best || score(p) > score(best) ? p : best), null);
     const at = gap ? Math.max(gap.start, gap.end - 120) : Math.max(0, target - 60);
-    s.events.push({ ms: at, run: () => applyExpr(s, expr) });
+    s.events.push({ ms: at, run: () => applyTag(s, tag) });
     return at;
   }
 
@@ -577,6 +594,7 @@
   }
 
   const applyExpr = (s, e) => { s.expr = e; setNum("expression", e); };
+  const applyTag = (s, tag) => { applyExpr(s, tag.expr); if (tag.gesture) playGesture(tag.gesture); };
 
   // Azure's shape at time t; where there is sound but no shape yet (shapes trail
   // the sound by ~100 ms at word starts) use the next shape, else the last one.

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frame Jempol</title>
+<style>
+  body { margin: 0; padding: 16px; background: #161616; color: #eee; font: 14px system-ui, sans-serif; }
+  h1 { font-size: 17px; margin: 0 0 4px; }
+  p { margin: 0 0 14px; color: #aaa; max-width: 70ch; }
+  h2 { font-size: 15px; margin: 18px 0 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  figure { margin: 0; background: #242424; border-radius: 10px; overflow: hidden; }
+  figure.cut { outline: 2px solid #f5bf03; }
+  .crop { aspect-ratio: 280 / 330; background-color: #242424; background-repeat: no-repeat;
+          background-size: 143% auto; background-position: 50% 52%; }
+  figcaption { padding: 6px 8px; font-size: 12px; line-height: 1.35; }
+  figcaption b { color: #f5bf03; }
+  a { color: inherit; text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>Jempol, frame demi frame (60 fps)</h1>
+<p>Lengan naik pakai bone; di frame paling cepat tangan bulat diganti tangan jempol (Recraft) bersama siku bulat dan garis lipatan. Jempol lalu memantul (lewat, balik, lewat tipis, diam), badan memantul dan kepala mengangguk. Turunnya kebalikannya. Bingkai kuning = frame pergantian. Senyum diatur halaman web. Klik gambar untuk ukuran penuh.</p>
+<div id="sections"></div>
+<script>
+  const sections = [
+    ["1. Naik dan mantul", [
+      ["d0", "sebelum", "Default"],
+      ["f006", "100 ms", "f6: ancang-ancang, lengan sedikit ke belakang"],
+      ["f009", "150 ms", "f9: lengan naik cepat"],
+      ["f012", "200 ms", "f12: naik paling cepat"],
+      ["f014", "233 ms", "f14: frame terakhir tangan bulat"],
+      ["f015", "250 ms", "f15: <b>ganti ke tangan jempol</b>", 1],
+      ["f016", "267 ms", "f16: lewat sedikit"],
+      ["f019", "317 ms", "f19: jempol membesar (pop)"],
+      ["f022", "367 ms", "f22: mantul balik, kepala mengangguk"],
+      ["f025", "417 ms", "f25: naik lagi"],
+      ["f027", "450 ms", "f27: lewat tipis"],
+      ["f030", "500 ms", "f30: kepala naik"],
+      ["f033", "550 ms", "f33: diam di pose"],
+      ["f036", "600 ms", "f36: angguk kecil"],
+      ["f042", "700 ms", "f42: tahan"],
+    ]],
+    ["2. Turun", [
+      ["f072", "1200 ms", "f72: akhir tahan"],
+      ["f075", "1250 ms", "f75: angkat sedikit sebelum turun"],
+      ["f078", "1300 ms", "f78: mulai turun"],
+      ["f079", "1317 ms", "f79: frame terakhir tangan jempol"],
+      ["f080", "1333 ms", "f80: <b>ganti ke tangan bulat</b>", 1],
+      ["f083", "1383 ms", "f83: turun cepat"],
+      ["f086", "1433 ms", "f86: turun"],
+      ["f090", "1500 ms", "f90: mendarat, lewat sedikit"],
+      ["f094", "1567 ms", "f94: kembali"],
+      ["f097", "1617 ms", "f97: hampir diam"],
+      ["f104", "1733 ms", "f104: diam"],
+      ["f108", "1800 ms", "f108: selesai = default"],
+    ]],
+  ];
+  const root = document.getElementById("sections");
+  for (const [title, frames] of sections) {
+    const h = document.createElement("h2"); h.textContent = title; root.append(h);
+    const grid = document.createElement("div"); grid.className = "grid"; root.append(grid);
+    for (const [f, t, label, cut] of frames) {
+      const src = `jempol/${f}.png`;
+      grid.insertAdjacentHTML("beforeend",
+        `<figure class="${cut ? "cut" : ""}"><a href="${src}" target="_blank"><div class="crop" style="background-image:url(${src})"></div></a>` +
+        `<figcaption>${label}<br><span style="color:#888">${t}</span></figcaption></figure>`);
+    }
+  }
+</script>
+</body>
+</html>

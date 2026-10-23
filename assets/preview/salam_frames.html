@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Frame Om Swastiastu</title>
+<style>
+  body { margin: 0; padding: 16px; background: #161616; color: #eee; font: 14px system-ui, sans-serif; }
+  h1 { font-size: 17px; margin: 0 0 4px; }
+  p { margin: 0 0 14px; color: #aaa; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  figure { margin: 0; background: #242424; border-radius: 10px; overflow: hidden; }
+  .crop { aspect-ratio: 280 / 370; background-color: #242424; background-repeat: no-repeat;
+          background-size: 143% auto; background-position: 50% 43.5%; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .warn { color: #ff8a65; }
+  h2 { font-size: 15px; margin: 18px 0 8px; }
+  figure.bad { outline: 2px solid #ff8a65; }
+  figcaption { padding: 6px 8px; font-size: 12px; line-height: 1.35; }
+  figcaption b { color: #f5bf03; }
+</style>
+</head>
+<body>
+<h1>Om Swastiastu, frame demi frame (60 fps)</h1>
+<p>Diambil dari keyframe A_Salam dan transisi state machine di Rive, termasuk senyum dari halaman web (mulai 600 ms). 1 frame = 16,7 ms. Klik gambar untuk ukuran penuh.</p>
+<div id="sections"></div>
+<script>
+  // [file, label waktu, keterangan, masalah?]
+  const sections = [
+    ["1. Mulai: dari default masuk ke aksi", [
+      ["d0", "sebelum", "Default"],
+      ["f000", "0 ms", "f0: mulai"],
+      ["f008", "133 ms", "f8: diam"],
+      ["f014", "233 ms", "f14: ancang-ancang, bahu turun"],
+      ["f018", "300 ms", "f18: siku mulai menekuk"],
+      ["f022", "367 ms", "f22: tangan naik"],
+      ["f026", "433 ms", "f26: tangan naik, gerak paling cepat"],
+      ["f028", "467 ms", "f28: tangan bulat diganti telapak (1 frame)"],
+      ["f030", "500 ms", "f30: telapak naik ke dada"],
+      ["f034", "567 ms", "f34: siku sampai"],
+      ["f038", "633 ms", "f38: lewat sedikit (pantulan) + senyum"],
+      ["f042", "700 ms", "f42: kembali"],
+      ["f047", "783 ms", "f47: telapak menyatu"],
+      ["f060", "1000 ms", "f60: tahan + menunduk"],
+    ]],
+    ["2. Selesai: tangan turun sampai kembali ke default", [
+      ["f092", "1533 ms", "f92: akhir tahan"],
+      ["f096", "1600 ms", "f96: ancang-ancang turun"],
+      ["f099", "1650 ms", "f99: mulai turun"],
+      ["f101", "1683 ms", "f101: telapak diganti tangan bulat (1 frame)"],
+      ["f104", "1733 ms", "f104: turun"],
+      ["f106", "1767 ms", "f106: turun"],
+      ["f108", "1800 ms", "f108: hampir di bawah"],
+      ["f110", "1833 ms", "f110: ayunan lewat sedikit"],
+      ["f112", "1867 ms", "f112: ayunan balik"],
+      ["f115", "1917 ms", "f115: ayunan balik"],
+      ["f118", "1967 ms", "f118: berhenti"],
+      ["f120", "2000 ms", "f120: akhir animasi"],
+      ["b050", "2050 ms", "Transisi ke default 25%"],
+      ["b100", "2100 ms", "Transisi 50%"],
+      ["b150", "2150 ms", "Transisi 75%"],
+      ["b200", "2200 ms", "Transisi selesai (masih senyum sampai 2600 ms)"],
+      ["d1", "sesudah", "Default"],
+    ]],
+  ];
+  const root = document.getElementById("sections");
+  for (const [title, shots] of sections) {
+    let html = `<h2>${title}</h2><div class="grid">`;
+    for (const [file, time, text, bad] of shots) {
+      const src = `salam_frames/${file}.png?v=5`;
+      html += `<figure${bad ? ' class="bad"' : ""}><a href="${src}" target="_blank"><div class="crop" style="background-image:url(${src})"></div></a>` +
+              `<figcaption><b>${time}</b><br>${bad ? `<span class="warn">${text}</span>` : text}</figcaption></figure>`;
+    }
+    root.insertAdjacentHTML("beforeend", html + "</div>");
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frame Om Swastiastu K1</title>
+<style>
+  body { margin: 0; padding: 16px; background: #161616; color: #eee; font: 14px system-ui, sans-serif; }
+  h1 { font-size: 17px; margin: 0 0 4px; }
+  p { margin: 0 0 14px; color: #aaa; max-width: 70ch; }
+  h2 { font-size: 15px; margin: 18px 0 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  figure { margin: 0; background: #242424; border-radius: 10px; overflow: hidden; }
+  figure.cut { outline: 2px solid #f5bf03; }
+  .crop { aspect-ratio: 280 / 330; background-color: #242424; background-repeat: no-repeat;
+          background-size: 143% auto; background-position: 50% 52%; }
+  figcaption { padding: 6px 8px; font-size: 12px; line-height: 1.35; }
+  figcaption b { color: #f5bf03; }
+  a { color: inherit; text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>Om Swastiastu, frame demi frame (60 fps)</h1>
+<p>Lengan asli Wayan naik pakai bone, lalu di frame paling cepat diganti gambar tangan menyatu (K2). Turunnya kebalikannya. Bingkai kuning menandai frame pergantian. Wajah netral (ekspresi diatur halaman web). Klik gambar untuk ukuran penuh.</p>
+<div id="sections"></div>
+<script>
+  const sections = [
+    ["1. Naik: dari default sampai tangan menyatu", [
+      ["d0", "sebelum", "Default"],
+      ["f004", "67 ms", "f4: mulai"],
+      ["f008", "133 ms", "f8: ancang-ancang, lengan sedikit turun"],
+      ["f012", "200 ms", "f12: siku mulai menekuk"],
+      ["f015", "250 ms", "f15: tangan naik"],
+      ["f018", "300 ms", "f18: tangan naik cepat"],
+      ["f019", "317 ms", "f19: frame terakhir pakai bone"],
+      ["f020", "333 ms", "f20: <b>ganti ke K2</b> (tangan menyatu)", 1],
+      ["f024", "400 ms", "f24: badan mantul"],
+      ["f028", "467 ms", "f28: mulai menunduk"],
+      ["f032", "533 ms", "f32: menunduk paling dalam"],
+      ["f044", "733 ms", "f44: tahan"],
+    ]],
+    ["2. Turun: dari tangan menyatu kembali ke default", [
+      ["f080", "1333 ms", "f80: kepala mulai naik"],
+      ["f089", "1483 ms", "f89: frame terakhir K2"],
+      ["f090", "1500 ms", "f90: <b>ganti ke bone</b>", 1],
+      ["f093", "1550 ms", "f93: tangan turun cepat"],
+      ["f096", "1600 ms", "f96: turun"],
+      ["f100", "1667 ms", "f100: hampir di bawah"],
+      ["f103", "1717 ms", "f103: melambat"],
+      ["f106", "1767 ms", "f106: lewat sedikit (pantulan)"],
+      ["f110", "1833 ms", "f110: kembali"],
+      ["f114", "1900 ms", "f114: diam"],
+      ["f120", "2000 ms", "f120: selesai = default"],
+    ]],
+  ];
+  const root = document.getElementById("sections");
+  for (const [title, frames] of sections) {
+    const h = document.createElement("h2"); h.textContent = title; root.append(h);
+    const grid = document.createElement("div"); grid.className = "grid"; root.append(grid);
+    for (const [f, t, label, cut] of frames) {
+      const src = `salam_k1/${f}.png`;
+      grid.insertAdjacentHTML("beforeend",
+        `<figure class="${cut ? "cut" : ""}"><a href="${src}" target="_blank"><div class="crop" style="background-image:url(${src})"></div></a>` +
+        `<figcaption>${label}<br><span style="color:#888">${t}</span></figcaption></figure>`);
+    }
+  }
+</script>
+</body>
+</html>

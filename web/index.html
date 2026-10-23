@@ -95,82 +95,171 @@
     stateMachine: "State Machine 1",
     autoplay: true,
     autoBind: true,
-    onLoad: () => { rive_.resizeDrawingSurfaceToCanvas(); vm = rive_.viewModelInstance; },
+    onLoad: () => { rive_.resizeDrawingSurfaceToCanvas(); vm = rive_.viewModelInstance; greetWhenVisible(); },
     onLoadError: () => setStatus("Gagal memuat wayan.riv. Buka lewat server.py, bukan dari file.", true),
   });
   const setNum = (name, v) => { if (vm) vm.number(name).value = v; };
   const setTalking = (on) => { if (vm) vm.boolean("talking").value = on; };
 
-  // Gaze. The cursor wins while it is moving over the page. While Wayan talks he
-  // looks straight at you. Otherwise he idles like a Duolingo character: darts
-  // his eyes somewhere, holds, looks back, and waits a few seconds.
-  const gaze = { x: 0, y: 0, tx: 0, ty: 0, speed: 0.15 };
+  // Om Swastiastu (FaceVM.action = 1, A_Salam, 2 s) plays once when Wayan first
+  // appears. The free Rive runtime shows a black splash for a few seconds after
+  // loading, so wait until sampled canvas pixels stop being opaque black.
+  const SALAM_MS = 2000;
+  const greeting = { timers: [] };
+  function greetWhenVisible() {
+    const ctx = $("c").getContext("2d");
+    const { width: w, height: h } = $("c");
+    const spots = [[0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9], [0.5, 0.95]];
+    const black = () => spots.every(([fx, fy]) => {
+      const [r, g, b, a] = ctx.getImageData(Math.floor(w * fx), Math.floor(h * fy), 1, 1).data;
+      return a > 200 && r + g + b < 30;
+    });
+    let seen = false;
+    const started = performance.now();
+    const poll = setInterval(() => {
+      if (black()) { seen = true; return; }
+      if (!seen && performance.now() - started < 3000) return; // splash not drawn yet (none on paid plans)
+      clearInterval(poll);
+      greeting.timers.push(setTimeout(playGreeting, 600));
+    }, 150);
+  }
+  function playGreeting() {
+    if (session && !session.done) return; // already talking
+    setNum("action", 1);
+    greeting.timers.push(
+      setTimeout(() => setNum("expression", 1), 450),   // smile into the bow
+      setTimeout(() => { endGreeting(); setNum("expression", 0); }, SALAM_MS));
+  }
+  function endGreeting() {
+    greeting.timers.forEach(clearTimeout);
+    greeting.timers = [];
+    setNum("action", 0);
+  }
+
+  // Gaze, modelled on how people look around:
+  // - the eyes jump (saccade) to a new point in 40-160 ms depending on distance,
+  //   or follow a moving cursor smoothly (pursuit);
+  // - the head follows on a slower spring, and as it turns the eyes ease back
+  //   toward the middle, so the head does part of the work;
+  // - while holding a point the eyes make tiny micro-saccades;
+  // - big jumps usually come with a blink.
+  // The cursor wins while it moves over the page. While talking he looks at you.
+  // Otherwise he idles: glances somewhere, holds, looks back, rests.
+  const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+  const target = { x: 0, y: 0 };
+  const eye = { x: 0, y: 0, fromX: 0, fromY: 0, toX: 0, toY: 0, t0: 0, dur: 0, pursuit: false };
+  const head = { x: 0, y: 0, vx: 0, vy: 0 };
   const cursor = { inside: false, movedAt: -Infinity };
-  const idle = { until: 0, stops: [] };
+  const idle = { until: 0, stops: [], last: -1, microAt: 0 };
+  const HEAD_SHARE = 0.75; // how far the head turns toward what he looks at
+  const EYE_RETURN = 0.35; // how much the eyes recentre once the head has turned
+  const HEAD_SPRING = 8;   // rad/s; the head settles in about 0.6 s
+
+  // Start a saccade. A micro-saccade jitters the eyes without moving the target,
+  // so the head stays put.
+  function lookAt(x, y, now, micro = false) {
+    const dist = Math.hypot(x - eye.x, y - eye.y);
+    if (!micro) { target.x = x; target.y = y; }
+    if (dist < 0.005) return;
+    Object.assign(eye, { fromX: eye.x, fromY: eye.y, toX: x, toY: y, t0: now, dur: 40 + 80 * Math.min(dist, 1.5), pursuit: false });
+    if (!micro && dist > 0.9 && Math.random() < 0.6 && vm) vm.trigger("blink").trigger();
+  }
+
   window.addEventListener("pointermove", (e) => {
     const box = $("c").getBoundingClientRect();
-    const clamp = (v) => Math.max(-1, Math.min(1, v));
     cursor.inside = true;
     cursor.movedAt = performance.now();
-    gaze.tx = clamp((e.clientX - (box.left + box.width / 2)) / (box.width * 0.6));
-    gaze.ty = clamp((e.clientY - (box.top + box.height * 0.3)) / (box.height * 0.5));
-    gaze.speed = 0.15;
+    target.x = clamp1((e.clientX - (box.left + box.width / 2)) / (box.width * 0.6));
+    target.y = clamp1((e.clientY - (box.top + box.height * 0.3)) / (box.height * 0.5));
+    eye.pursuit = true;
   });
   const cursorGone = () => {
     cursor.inside = false;
     cursor.movedAt = -Infinity;
-    gaze.tx = gaze.ty = 0; // back to the centre straight away, idle glances follow later
-    gaze.speed = 0.15;
-    idle.until = performance.now() + 2000;
+    const now = performance.now();
+    lookAt(0, 0, now); // back to the centre straight away, idle glances follow later
+    idle.until = now + 2000;
     idle.stops = [];
   };
   document.addEventListener("pointerout", (e) => { if (!e.relatedTarget) cursorGone(); });
   window.addEventListener("blur", cursorGone);
 
-  // Each glance is one or more [lookX, lookY] stops; y < 0 looks up.
+  // Each glance is one or more [x, y] stops (y < 0 looks up), scaled 60-100%.
   const GLANCES = [
-    [[-0.8, 0]], [[0.8, 0]],                 // side
-    [[-0.7, -0.6]], [[0.7, -0.6]],           // up, as if thinking
-    [[-0.6, 0.5]], [[0.6, 0.5]],             // down
+    [[-0.8, 0]], [[0.8, 0]],                      // side
+    [[-0.7, -0.6]], [[0.7, -0.6]],                // up, as if thinking
+    [[-0.6, 0.5]], [[0.6, 0.5]],                  // down
     [[-0.8, 0], [0.8, 0]], [[0.8, 0], [-0.8, 0]], // look around
   ];
   function idleGaze(now) {
     if (now < idle.until) return;
     let wait;
     if (idle.stops.length) {
-      [gaze.tx, gaze.ty] = idle.stops.shift();
-      wait = 600 + Math.random() * 800;          // hold the glance
-    } else if (gaze.tx || gaze.ty) {
-      gaze.tx = gaze.ty = 0;
-      wait = 2000 + Math.random() * 3000;        // rest at the centre
+      const [x, y] = idle.stops.shift();
+      lookAt(x, y, now);
+      wait = idle.stops.length ? 350 + Math.random() * 350 : 500 + Math.random() * 800; // hold
+    } else if (target.x || target.y) {
+      lookAt(0, 0, now);
+      wait = 1800 + Math.random() * 2700; // rest at the centre
     } else {
-      idle.stops = GLANCES[Math.floor(Math.random() * GLANCES.length)].slice();
+      let i;
+      do { i = Math.floor(Math.random() * GLANCES.length); } while (i === idle.last);
+      idle.last = i;
+      const s = 0.6 + Math.random() * 0.4;
+      idle.stops = GLANCES[i].map(([x, y]) => [x * s, y * s]);
       wait = 0;
     }
-    gaze.speed = 0.3; // a quick dart, not a slow drift
     idle.until = now + wait;
   }
 
-  function ease(now) {
+  let lastFrame = performance.now();
+  function gazeFrame(now) {
+    const dt = Math.min(0.05, (now - lastFrame) / 1000);
+    lastFrame = now;
     const talking = session && session.started && !session.done;
     if (cursor.inside && now - cursor.movedAt < 3000) {
       idle.until = now + 1500; // after the cursor stops, wait a little before idling
       idle.stops = [];
-    } else if (talking) {
-      gaze.tx = gaze.ty = 0;
-      gaze.speed = 0.15;
-      idle.until = now + 1500;
-      idle.stops = [];
     } else {
-      idleGaze(now);
+      eye.pursuit = false;
+      if (talking) {
+        if (target.x || target.y) lookAt(0, 0, now);
+        idle.until = now + 1500;
+        idle.stops = [];
+      } else {
+        idleGaze(now);
+      }
+      if (now > idle.microAt && now - eye.t0 > eye.dur + 250) {
+        lookAt(target.x + (Math.random() - 0.5) * 0.12, target.y + (Math.random() - 0.5) * 0.1, now, true);
+        idle.microAt = now + 500 + Math.random() * 900;
+      }
     }
-    gaze.x += (gaze.tx - gaze.x) * gaze.speed;
-    gaze.y += (gaze.ty - gaze.y) * gaze.speed;
-    setNum("lookX", gaze.x);
-    setNum("lookY", gaze.y);
-    requestAnimationFrame(ease);
+
+    if (eye.pursuit) {
+      const k = 1 - Math.exp(-dt / 0.07); // smooth pursuit, ~70 ms behind the cursor
+      eye.x += (target.x - eye.x) * k;
+      eye.y += (target.y - eye.y) * k;
+    } else {
+      const p = eye.dur ? Math.min(1, (now - eye.t0) / eye.dur) : 1;
+      const e = 1 - (1 - p) ** 3; // fast start, soft landing
+      eye.x = eye.fromX + (eye.toX - eye.fromX) * e;
+      eye.y = eye.fromY + (eye.toY - eye.fromY) * e;
+    }
+
+    // Critically damped spring: the head lags the eyes and settles without wobble.
+    for (const [k, v] of [["x", "vx"], ["y", "vy"]]) {
+      const a = HEAD_SPRING ** 2 * (target[k] * HEAD_SHARE - head[k]) - 2 * HEAD_SPRING * head[v];
+      head[v] += a * dt;
+      head[k] += head[v] * dt;
+    }
+
+    setNum("lookX", clamp1(eye.x - EYE_RETURN * head.x));
+    setNum("lookY", clamp1(eye.y - EYE_RETURN * head.y));
+    setNum("headX", head.x);
+    setNum("headY", head.y);
+    requestAnimationFrame(gazeFrame);
   }
-  requestAnimationFrame(ease); // first frame runs after the script, once `session` exists
+  requestAnimationFrame(gazeFrame); // first frame runs after the script, once `session` exists
 
   // ---- UI -------------------------------------------------------------------
   const setStatus = (msg, isError = false) => { $("status").textContent = msg; $("status").className = "status" + (isError ? " error" : ""); };
@@ -246,6 +335,7 @@
 
   async function speak() {
     stop();
+    endGreeting();
     const raw = $("text").value.trim();
     if (!raw) return;
     const voice = currentVoice();

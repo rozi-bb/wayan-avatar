@@ -12,6 +12,7 @@ Usage:
     python3 scripts/recraft.py gen "prompt" --model recraftv4_1_flash --n 4 --out assets/drafts/name
     python3 scripts/recraft.py vectorize assets/drafts/name_1.webp --out assets/vector/name
     python3 scripts/recraft.py style ref1.png ref2.png --model recraftv4_styles
+    python3 scripts/recraft.py inpaint image.png mask.png "prompt" --n 2 --out assets/drafts/name
 """
 
 import argparse
@@ -37,6 +38,7 @@ PRICES = {
     "recraftv4_styles_vector": 0.05,
     "recraftv4_styles_pro_vector": 0.12,
     "recraftv2_vector": 0.044,
+    "recraftv3": 0.04,
     "recraftv3_vector": 0.08,
 }
 
@@ -149,6 +151,41 @@ def cmd_vectorize(args):
     download(result["image"]["url"], ROOT / f"{args.out}.svg")
 
 
+def cmd_inpaint(args):
+    # Only the white part of the mask is redrawn; everything else stays as is.
+    # Inpainting is a V3 feature, so the model is recraftv3 / recraftv3_vector.
+    body = {
+        "image_url": data_url(args.image),
+        "mask_url": data_url(args.mask),
+        "prompt": args.prompt,
+        "model": args.model,
+        "n": args.n,
+    }
+    if args.negative:
+        body["negative_prompt"] = args.negative
+    if args.colors:
+        body["controls"] = {
+            "colors": [{"rgb": list(map(int, c.split(",")))} for c in args.colors]
+        }
+    if "vector" not in args.model:
+        body["image_format"] = args.image_format
+
+    est = PRICES.get(args.model, 0) * args.n
+    if args.dry_run:
+        shown = {k: (v[:40] + "...") if k.endswith("_url") else v for k, v in body.items()}
+        print(json.dumps(shown, indent=2))
+        print(f"\nestimated cost: ${est:.3f}")
+        return
+
+    print(f"inpainting {args.n}x {args.model} (est ${est:.3f}) ...")
+    result = call("POST", "/images/inpaint", body)
+    print(f"  charged {result['credits']} units (${result['credits'] / 1000:.3f})")
+    ext = ext_for(args.model, args.image_format)
+    for i, image in enumerate(result["data"], 1):
+        suffix = f"_{i}" if args.n > 1 else ""
+        download(image["url"], ROOT / f"{args.out}{suffix}{ext}")
+
+
 def cmd_style(args):
     print(f"creating style from {len(args.images)} reference(s) (est $0.005) ...")
     body = {
@@ -188,6 +225,19 @@ def main():
                    choices=["hierarchical", "cut_out"])
     v.add_argument("--out", default="assets/vector/out")
     v.set_defaults(func=cmd_vectorize)
+
+    ip = sub.add_parser("inpaint", help="redraw the white part of a mask ($0.04 each)")
+    ip.add_argument("image")
+    ip.add_argument("mask", help="grayscale PNG, same size, white = redraw")
+    ip.add_argument("prompt")
+    ip.add_argument("--negative", help="negative_prompt")
+    ip.add_argument("--colors", nargs="*", help='palette as RGB triples, e.g. "255,102,0"')
+    ip.add_argument("--model", default="recraftv3", choices=["recraftv3", "recraftv3_vector"])
+    ip.add_argument("--n", type=int, default=1, help="1 to 6")
+    ip.add_argument("--image-format", default="png", choices=["webp", "png"])
+    ip.add_argument("--out", default="assets/drafts/inpaint", help="path prefix, no extension")
+    ip.add_argument("--dry-run", action="store_true", help="print body + cost only")
+    ip.set_defaults(func=cmd_inpaint)
 
     s = sub.add_parser("style", help="create a reusable style from references")
     s.add_argument("images", nargs="+")

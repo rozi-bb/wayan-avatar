@@ -3,7 +3,7 @@
 Urutan pengerjaan dari nol sampai avatar bisa bicara online.
 Detail produk: [PRD.md](PRD.md)
 
-**v1 = Fase 0–5 lalu 7.** Teks diketik manual, belum ada LLM.
+**v1 = Fase 0–5, 5b, lalu 7.** Teks diketik manual, belum ada LLM.
 **v2 = Fase 6.** Percakapan suara + DeepSeek, dikerjakan setelah v1 bagus.
 
 **Aturan:** satu fase per giliran. Tidak ada panggilan Recraft tanpa izin Rozi, dan biayanya selalu ditunjukkan lebih dulu.
@@ -171,6 +171,68 @@ Tujuan: Wayan bicara di browser dari teks yang diketik, mulut sinkron.
 
 ---
 
+## Fase 5b — Idle hidup ala Duolingo
+
+Tujuan: saat diam, Wayan terasa hidup dan punya kepribadian (ceria, enerjik, anak Bali), dengan gerakan halus ala Duolingo. Daftar gerakan disepakati dengan Rozi 2026-10-22.
+
+### Daftar gerakan
+
+| # | Gerakan | Kapan | Isi |
+|---|---|---|---|
+| 1 | Napas & kedip | selalu | Sudah ada (`Idle`, `Blink`) |
+| 2 | Lirikan mata | selalu | Sudah ada (halaman web, saat kursor diam/keluar) |
+| 3 | **Kepala ikut lirikan** | selalu | Kepala miring ±4° dan bergeser searah `lookX` |
+| 4 | **Badan bergoyang** | selalu | Berat badan pindah kiri-kanan, ±1°, siklus ±6 s |
+| 5 | **Om Swastiastu** | sekali, saat halaman dibuka | Kedua tangan menyatu di dada, kepala mengangguk, lalu senyum |
+| 6 | **Udeng melorot** | acak | Udeng turun menutupi mata → didorong naik → tertawa kecil |
+| 7 | **Kepal "Yes!"** | acak | Tangan mengepal ditarik ke bawah, senyum lebar |
+| 8 | **Silang tangan** | bosan (±30 s tanpa interaksi) | Lengan bersilang, jari mengetuk, satu alis naik, lalu kembali |
+
+Aturan:
+- Aksi acak (6–7) bergantian tiap 10–18 detik, tidak sama dua kali berturut-turut
+- Aksi hanya saat Wayan diam: tidak bicara, kursor tidak sedang digerakkan. Mulai bicara → aksi berhenti halus kembali ke pose normal
+- Gerakan dari daftar lama (seledet, senandung, lambai, jempol + kedip) disimpan sebagai cadangan kalau 6–7 terasa monoton
+
+### Prinsip gerak (berlaku untuk semua aksi)
+
+- **Ancang-ancang**: gerak kecil ke arah berlawanan dulu (100–150 ms)
+- **Lewat lalu memantul**: easing cubic dengan overshoot, bukan linear
+- **Kepala memimpin, badan menyusul** 2–3 frame kemudian
+- **Bunga & ujung udeng ikut bergoyang** telat sesudah kepala berhenti
+- **Kedip saat menoleh**
+- **Tukar bentuk tangan di tengah gerakan cepat** supaya pergantiannya tidak terlihat
+- Tidak pernah diam total: napas + goyang tetap jalan di bawah aksi. Semua transisi 200–300 ms
+
+### Aset
+
+- [x] Prompt Gemini: [prompt-tangan.md](prompt-tangan.md)
+- [x] `assets/vector/hands.svg` — 6 tangan kanan (telapak, jempol, telunjuk, kepal, telapak samping, peace), 18 path. Tangan kiri = cerminan di Rive
+- [x] `assets/vector/arms_crossed.svg` — Wayan bersilang tangan, kanvas 1347×2048 sejajar master, 50 path. Yang dipakai: dada + lengan + sabuk
+- [x] `assets/vector/hands_together.svg` — tangan menyatu (Om Swastiastu), kanvas sejajar master, 56 path. Gemini gagal 2× (menggambar anak Bali baru), jadi dibuat dengan **Recraft inpaint** (`recraftv3`): gambar master + mask lengan & dada (`references/mask-arms-chest.png`), hanya area mask yang digambar ulang. Kepala & kaki identik (selisih rata-rata 3/255). Variasi 1 dari 2 dipilih Rozi
+
+### Pekerjaan
+
+- [x] Kepala ikut lirikan, dua lapis: grup `HeadLook` (kepala utuh, pivot leher) miring `headX × 0,045 rad` (±2,6°) + geser kecil, dan grup `FaceFeatures` (mata, hidung, mulut) + alis bergeser `headX × 16` di dalam wajah → kesan menoleh ala Duolingo tanpa membuka celah di leher. `headX/headY` terpisah dari `lookX/lookY` supaya kepala bisa lebih lambat dari mata
+- [x] Bahu baju disambung: `Shoulder_L/R` di belakang `Shirt`, garis bahu landai sampai leher. Sebelumnya tepi baju di bawah wajah melengkung turun, jadi saat kepala bergerak baju tampak terputus
+- [x] Gerak mata ala manusia (halaman web): saccade 40–160 ms tergantung jarak (ease-out), pursuit halus saat mengikuti kursor, kepala menyusul lewat pegas teredam (±0,6 s), mata kembali 35% ke tengah setelah kepala menoleh, micro-saccade tiap 0,5–1,4 s saat menatap, kedip (`BlinkOnce`, trigger `blink`) di 60% lirikan besar. Lirikan idle diskalakan 60–100%, tahan 0,5–1,3 s, istirahat 1,8–4,5 s
+- [x] Layer `Sway`: animasi `Sway` loop 6 s, `Body` miring ±1° dari pinggang + `Head` x 684,8 ↔ 695,2 mengikuti bahu (cubic ease-in-out)
+- [x] Bentuk tangan: 6 pose × 2 lengan (`Hand_L/R_Open/Thumb/Point/Fist/Side/Peace`) anak tulang lengan bawah, dibuat dari `hands.svg` lewat `scripts/hands_to_rive.py` (tangan kiri = cerminan). Tangan bulat lama tetap tampil sebagai manset; pangkal pose dimulai di dalamnya sehingga menyatu
+- [x] Grup `Udeng` (+ `Hair_Top`) di atas mata, di bawah bunga; `Hair_Cap` (warna rambut) di bawah udeng supaya kepala tidak botak saat udeng turun
+- [x] Pose ganti badan: `Pose_Salam` & `Pose_Silang` (badan dari `hands_together.svg`/`arms_crossed.svg`, `scripts/pose_to_rive.py`, sejajar rig). Selama pose, baju/kamen/leher/tangan rig disembunyikan; lengan rig bergerak ke dada dulu supaya pergantian tidak terlihat
+- [x] Animasi `A_Salam` (2 s, membungkuk), `A_Udeng` (1,7 s), `A_Yes` (1,5 s), `A_Silang` (3,2 s, alis naik + kepala miring) + `A_Rest`. Tangan pendorong udeng = salinan `HandPush` di dalam kepala (lengan asli tertutup kepala), posisinya dari forward kinematics lengan
+- [x] Layer **Aksi**: `A_Rest` → `A_*` saat `action == n` (1 Salam, 2 Udeng, 3 Yes, 4 Silang), kembali saat `action == 0` (blend 200–250 ms)
+- [x] Halaman web: salam sekali setelah splash Rive hilang (dideteksi dari piksel kanvas), Udeng/Yes bergantian tiap 10–18 s, silang setelah 30 s tanpa input; tidak mulai saat kursor bergerak, dibatalkan saat bicara. Ekspresi & mata ikut (kaget saat udeng jatuh, tawa sesudahnya, mulut "Yes!", lirik ke samping saat bosan)
+- [x] Diuji di browser: keempat aksi tampil, salam 3× berturut-turut benar, aksi berhenti saat bicara dimulai
+- [x] Revisi Rozi (2026-10-22): Salam memakai sabuk & kamen rig sendiri (pose hanya badan atas, dipotong di garis sabuk, `--upper`); isian bahu & leher belakang tetap tampil saat Salam/Silang; `Hair_Cap` mengikuti tepi kepala penuh + tepi gelap saat udeng turun, udeng miring −2°; "Yes!" memakai tekukan siku lebih ringan (naik 15°/−85°, tarik 30°/−72°) supaya lengan baju tidak cekung; tiap aksi mulai dari wajah netral
+- [x] Om Swastiastu versi bone + tukar gambar (2026-10-23): lengan asli naik pakai bone (f0–f19, makin cepat), di f20 (333 ms) diganti `Pose_Salam` (K2, gambar tangan menyatu), badan memantul lalu menunduk, f90 balik ke bone dan turun ke default (2 s). Aksi lain (Udeng, Yes, Silang), `Pose_Silang` dan `HandPush` dihapus atas permintaan Rozi; layer Aksi tinggal `A_Rest` ↔ `A_Salam` (`action` = 1). Halaman web memutar salam sekali setelah splash Rive hilang (+600 ms, senyum saat menunduk) dan membatalkannya begitu `speak()` dipanggil; transisi keluar A_Salam → A_Rest 0 ms supaya pembatalan tidak menumpuk dua lapis transparan. Lembar frame: `assets/preview/salam_k1.html`. Diuji di browser: urutan benar, tidak ada error
+- [x] Coba K1 (pose tengah) lewat Recraft inpaint 2× ($0.16): gagal, telapak selalu menempel. Diganti pose bone
+
+**Gerbang:** Rozi menonton tiap aksi di browser dan setuju sebelum lanjut ke Fase 7.
+
+Biaya Recraft: **$0.27** (+$0.16 percobaan K1 inpaint, gagal). Sebelumnya **$0.11** (vectorize tangan + silang tangan $0.02, inpaint 2 variasi $0.08, vectorize tangan menyatu $0.01).
+
+---
+
 ## Fase 6 — Percakapan suara ⏸️ **ditunda ke v2**
 
 Dikerjakan setelah v1 terbukti bagus. Format tag sudah disiapkan sama persis, jadi fase ini tinggal mengganti sumber teksnya saja.
@@ -190,8 +252,8 @@ Dikerjakan setelah v1 terbukti bagus. Format tag sudah disiapkan sama persis, ja
 
 ## Fase 7 — Deploy v1
 
-- [ ] Repo GitHub **private**
-- [ ] Pastikan tidak ada key ter-commit
+- [x] Repo GitHub **private**: [rozi-bb/wayan-avatar](https://github.com/rozi-bb/wayan-avatar)
+- [x] Pastikan tidak ada key ter-commit (`.env` di-ignore, isi repo dipindai)
 - [ ] Deploy dengan backend (key tetap di server)
 - [ ] Uji di perangkat lain
 - [ ] Tulis README
@@ -206,8 +268,9 @@ Dikerjakan setelah v1 terbukti bagus. Format tag sudah disiapkan sama persis, ja
 | 1 — Desain karakter | $0.26 ✅ |
 | 2–4 — Rive | $0 |
 | 5, 7 — Web & deploy | $0 |
+| 5b — Idle hidup | $0.11 ✅ |
 | 6 — Percakapan (v2) | $0 |
-| **Total** | **±$0.50** |
+| **Total** | **±$0.61** |
 
 Seluruh biaya Recraft habis di Fase 1. Sesudah itu tidak ada lagi pengeluaran aset.
 

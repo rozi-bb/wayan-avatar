@@ -17,10 +17,12 @@ outside that edge; when the tree leans right, the mirror fills the sliver
 instead of sky showing through.
 
 One blossom near the top of the canopy was never drawn: its petals were the
-cream sky showing through notches in three leaves, so once the sky turned
-blue it looked like a hole cut in the leaves. BLOSSOM_FIX puts a whole white
-blossom behind the leaves there; the notches show its petals and its upper
-petals stand against the sky like the other blossoms on the canopy edge.
+cream sky showing through notches in three leaves (322, 406 over the darker
+137), so once the sky turned blue it looked like a hole cut in the leaves.
+LEAF_PATCH closes the notch: drawn just above leaf 137, a light patch carries
+the canopy edge of 322 on to 406 (tangent at both joins) and a dark patch
+carries the dark/light boundary across. The old centre (NOTCH_CENTRE) goes,
+and NEW_BLOSSOM puts a blossom the size of its neighbours on top.
 """
 
 import re
@@ -29,16 +31,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "web" / "bg_rumah.svg"
 
+NOTCH_CENTRE = [481, 482, 483, 484]
 TREE = [*range(137, 163), *range(198, 212), *range(322, 336), *range(337, 346),
-        406, 474, 476, 477, 480, 481, 482, 483, 484]
+        406, 474, 476, 477, 480]
 BACK_END = 137                       # paths 1..136 sit behind the tree
 TREE_BOX = (-120, 480, 540, 580)     # x, y, w, h in picture units
 FLOWER = [323, 324, 325, 326, 327, 328, 329, 332]  # petals and centre, not the leaf bits between them
 FLOWER_BOX = (60, 536, 92, 98)
-# Blossom 323 moved onto the notched one (centre 257, 610) a little larger, plus white
-# dots that fill the slivers between the notch edges and its petals.
-BLOSSOM_FIX = ("translate(257 610) scale(1.12) translate(-106 -585)",
-               [(255, 632, 34), (221, 624, 7), (245, 591, 6), (286, 610, 5), (241, 585, 3.5), (247.5, 597.5, 2.5)])
+LEAF_PATCH = [
+    ("rgb(32,133,92)", "M 219.9 626.7 C 233.9 632.1 255.7 641.7 267.7 650.7 L 300 645 L 312 625 "
+                       "L 306 612.6 C 282.1 605.2 262 589.5 240.4 577 L 230 590 L 215 600 L 205 612 Z"),
+    ("rgb(36,108,79)", "M 219.9 626.7 C 233.9 632.1 255.7 641.7 267.7 650.7 L 275 670 L 225 660 L 210 640 Z"),
+]
+# The FLOWER blossom (centre 107, 586) at the old centre, turned and shrunk to its neighbours' size.
+NEW_BLOSSOM = "translate(257 608) rotate(28) scale(0.74) translate(-107 -586)"
 W, H = 1331, 2048
 
 
@@ -51,11 +57,11 @@ def main():
     paths = re.findall(r"<path\b[^>]*/>", SRC.read_text())
     tree = set(TREE)
     back = [p for i, p in enumerate(paths) if 0 < i < BACK_END]
-    front = [p for i, p in enumerate(paths) if i >= BACK_END and i not in tree]
-    move, dots = BLOSSOM_FIX
-    fix = (f'<g transform="{move}">{paths[323]}</g>\n' +
-           "".join(f'<circle cx="{x}" cy="{y}" r="{r}" fill="rgb(250,248,243)"/>\n' for x, y, r in dots))
-    tree_paths = fix + "\n".join(paths[i] for i in TREE)
+    front = [p for i, p in enumerate(paths) if i >= BACK_END and i not in tree | set(NOTCH_CENTRE)]
+    patch = "".join(f'<path fill="{fill}" d="{d}"/>\n' for fill, d in LEAF_PATCH)
+    blossom = f'<g transform="{NEW_BLOSSOM}">\n' + "\n".join(paths[i] for i in FLOWER) + "\n</g>"
+    tree = [paths[i] for i in TREE]
+    tree_paths = "\n".join([tree[0], patch + tree[1], *tree[2:], blossom])
 
     x, y, w, h = TREE_BOX
     tree_body = (f'<g transform="scale(-1,1)">\n{tree_paths}\n</g>\n'

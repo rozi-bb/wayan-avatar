@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Background Bergerak</title>
+<style>
+  body { margin: 0; padding: 24px 16px; background: #1d2330; color: #e8ecf2; font: 15px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p { margin: 0 0 16px; color: #aab4c3; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .col { flex: 1 1 300px; max-width: 420px; }
+  .col h2 { font-size: 14px; margin: 0 0 8px; color: #cfd7e3; }
+
+  .stage { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 24px; overflow: hidden; background: rgb(107,168,210); }
+  .stage.flat { background: rgb(107,168,210) url(../../web/bg_rumah.svg) center / cover; }
+  .stage img.wayan { position: absolute; left: 50%; bottom: 2%; width: 66%; transform: translateX(-50%); }
+
+  /* The picture is 1331 x 2048; the scene keeps that shape and is centred, like background-size: cover on a 2:3 stage. */
+  .scene { position: absolute; left: 0; top: 50%; width: 100%; aspect-ratio: 1331 / 2048; transform: translateY(-50%); }
+  .layer { position: absolute; inset: 0; background: center / 100% 100% no-repeat; }
+  .back { background-image: url(../../web/bg_back.svg); }
+  .front { background-image: url(../../web/bg_front.svg); }
+
+  /* Tree box from scripts/bg_layers.py; it sways round the trunk where it leaves the left edge (-40, 1000). */
+  .tree { position: absolute; left: -9.0158%; top: 23.4375%; width: 40.5710%; height: 28.3203%;
+          background: url(../../web/bg_tree.svg) center / 100% 100% no-repeat;
+          transform-origin: 14.81% 89.66%; animation: sway 5.6s cubic-bezier(.45,0,.55,1) infinite alternate; will-change: transform; }
+  @keyframes sway { from { transform: rotate(-1.2deg); } to { transform: rotate(1.2deg); } }
+
+  /* Each cloud rides a full-width track from just off the left edge to just off the right. */
+  .track { position: absolute; left: 0; width: 100%; animation: drift linear infinite; will-change: transform; }
+  .cloud { position: absolute; right: 100%; aspect-ratio: 300 / 120; background: url(../../web/bg_cloud.svg) center / contain no-repeat; }
+  .t1 { top: 6%;  --w: 30%; animation-duration: 70s;  animation-delay: -22s; }
+  .t2 { top: 13%; --w: 20%; animation-duration: 95s;  animation-delay: -70s; opacity: .9; }
+  .t3 { top: 16%; --w: 24%; animation-duration: 120s; animation-delay: -30s; }
+  .track .cloud { width: var(--w); }
+  @keyframes drift { from { transform: translateX(0); } to { transform: translateX(calc(100% + var(--w) * 1)); } }
+
+  @media (prefers-reduced-motion: reduce) { .tree, .track { animation: none; } }
+</style></head>
+<body>
+<h1>Background bergerak: awan + pohon kamboja</h1>
+<p>Kiri: versi diam (sekarang). Kanan: awan lewat pelan, pohon bergoyang halus.</p>
+<div class="row">
+  <div class="col"><h2>Sekarang (diam)</h2>
+    <div class="stage flat"><img class="wayan" src="backgrounds/wayan.png" alt=""></div></div>
+  <div class="col"><h2>Bergerak</h2>
+    <div class="stage" id="live">
+      <div class="scene">
+        <div class="track t1"><div class="cloud"></div></div>
+        <div class="track t2"><div class="cloud"></div></div>
+        <div class="track t3"><div class="cloud"></div></div>
+        <div class="layer back"></div>
+        <div class="tree"></div>
+        <div class="layer front"></div>
+      </div>
+      <img class="wayan" src="backgrounds/wayan.png" alt="">
+    </div></div>
+</div>
+</body></html>

@@ -12,7 +12,26 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 16px system-ui, sans-serif; }
   main { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  .stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 2 / 3; background: var(--stage) url(bg_rumah.svg) center / cover; border-radius: 24px; overflow: hidden; }
+  .stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 2 / 3; background: rgb(107,168,210); border-radius: 24px; overflow: hidden; }
+  /* The courtyard is split into layers by scripts/bg_layers.py. The picture is 1331 x 2048; the scene keeps
+     that shape and is centred, which is what background-size: cover did on the 2:3 stage. */
+  .scene { position: absolute; left: 0; top: 50%; width: 100%; aspect-ratio: 1331 / 2048; transform: translateY(-50%); }
+  .layer { position: absolute; inset: 0; background: center / 100% 100% no-repeat; }
+  .back { background-image: url(bg_back.svg); }
+  .front { background-image: url(bg_front.svg); }
+  /* Tree box from bg_layers.py; it sways round the trunk where it leaves the left edge (-40, 1000). */
+  .tree { position: absolute; left: -9.0158%; top: 23.4375%; width: 40.5710%; height: 28.3203%;
+          background: url(bg_tree.svg) center / 100% 100% no-repeat;
+          transform-origin: 14.81% 89.66%; animation: sway 5.6s cubic-bezier(.45,0,.55,1) infinite alternate; will-change: transform; }
+  @keyframes sway { from { transform: rotate(-1.2deg); } to { transform: rotate(1.2deg); } }
+  /* Each cloud rides a full-width track from just off the left edge to just off the right. */
+  .track { position: absolute; left: 0; width: 100%; animation: drift linear infinite; will-change: transform; }
+  .cloud { position: absolute; right: 100%; width: var(--w); aspect-ratio: 300 / 120; background: url(bg_cloud.svg) center / contain no-repeat; }
+  .t1 { top: 6%;  --w: 30%; animation-duration: 70s;  animation-delay: -22s; }
+  .t2 { top: 13%; --w: 20%; animation-duration: 95s;  animation-delay: -70s; opacity: .9; }
+  .t3 { top: 16%; --w: 24%; animation-duration: 120s; animation-delay: -30s; }
+  @keyframes drift { from { transform: translateX(0); } to { transform: translateX(calc(100% + var(--w))); } }
+  @media (prefers-reduced-motion: reduce) { .tree, .track { animation: none; } }
   /* Wayan is drawn smaller than the stage so the house gate and pavilion stay visible around him. */
   canvas { position: absolute; left: 50%; bottom: 2%; width: var(--wayan, 66%); aspect-ratio: 2 / 3; transform: translateX(-50%); }
   .voice { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -32,7 +51,17 @@
 </head>
 <body>
 <main>
-  <div class="stage"><canvas id="c" width="840" height="1260"></canvas></div>
+  <div class="stage">
+    <div class="scene" aria-hidden="true">
+      <div class="track t1"><div class="cloud"></div></div>
+      <div class="track t2"><div class="cloud"></div></div>
+      <div class="track t3"><div class="cloud"></div></div>
+      <div class="layer back"></div>
+      <div class="tree"></div>
+      <div class="layer front"></div>
+    </div>
+    <canvas id="c" width="840" height="1260"></canvas>
+  </div>
 
   <div class="voice">
     <code id="voiceId"></code>

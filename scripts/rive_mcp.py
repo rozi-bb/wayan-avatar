@@ -6,6 +6,7 @@ from an SVG). Talks to the editor's local MCP server like export_riv.sh.
 
     python3 scripts/rive_mcp.py path_editor args.json
 
+Other scripts import connect() for a session of their own.
 Stdlib only. Prints the tool's text result.
 """
 
@@ -27,6 +28,29 @@ def post(body, session=None):
 def parse(raw):
     lines = [l[5:].strip() for l in raw.splitlines() if l.startswith("data:")]
     return json.loads(lines[-1] if lines else raw)
+
+
+def connect(name="rive-mcp-script"):
+    """Open a session and return call(tool, args) -> the tool's parsed JSON result."""
+    session, _ = post({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "protocolVersion": "2025-11-25", "capabilities": {},
+        "clientInfo": {"name": name, "version": "1"}}})
+    if not session:
+        sys.exit(f"Rive editor MCP not reachable at {URL}")
+    ids = [1]
+
+    def call(tool, args, raw=False):
+        ids[0] += 1
+        _, body = post({"jsonrpc": "2.0", "id": ids[0], "method": "tools/call",
+                        "params": {"name": tool, "arguments": args}}, session)
+        result = parse(body)["result"]
+        if raw:
+            return result
+        out = json.loads(result["content"][0]["text"])
+        # Some tools wrap their payload as a JSON string under "content".
+        inner = out.get("content")
+        return json.loads(inner) if isinstance(inner, str) and inner.startswith("{") else out
+    return call
 
 
 def main():

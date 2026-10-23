@@ -39,7 +39,7 @@
             background: radial-gradient(closest-side, rgba(110,80,50,.3) 70%, rgba(110,80,50,0)); }
   /* Wayan is drawn smaller than the stage so the house gate and pavilion stay visible around him. */
   canvas { position: absolute; left: 50%; bottom: 2%; width: var(--wayan, 66%); aspect-ratio: 2 / 3; transform: translateX(-50%); }
-  .voice { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .voice { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
   .voice code { font: 15px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
   select { font: inherit; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); max-width: 100%; }
   .say { display: flex; gap: 12px; width: 100%; }
@@ -48,6 +48,10 @@
   button { font: inherit; padding: 12px 20px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); cursor: pointer; }
   #speak { background: var(--accent); border-color: var(--accent); color: #1d1d1d; font-weight: 700; }
   button:disabled { opacity: .45; cursor: default; }
+  .moves { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 480px; }
+  .moves button { padding: 7px 12px; font-size: 14px; border-radius: 999px; }
+  .moves button.on { border-color: var(--accent); color: var(--accent); }
+  .moves .sep { width: 100%; height: 0; }
   .hint { color: var(--muted); font-size: 14px; text-align: center; margin: 0; }
   .status { min-height: 1.4em; font-size: 14px; margin: 0; text-align: center; }
   .status.error { color: var(--error); font-weight: 600; }
@@ -69,6 +73,17 @@
     <canvas id="c" width="840" height="1260"></canvas>
   </div>
 
+  <div class="moves" role="group" aria-label="Coba ekspresi dan gerakan">
+    <button data-expr="0" class="on">😐 Netral</button>
+    <button data-expr="1">🙂 Senyum</button>
+    <button data-expr="2">😮 Kaget</button>
+    <button data-expr="3">😢 Sedih</button>
+    <button data-expr="4">😆 Ketawa</button>
+    <span class="sep"></span>
+    <button data-gesture="salam">🙏 Om Swastiastu</button>
+    <button data-gesture="jempol">👍 Jempol</button>
+  </div>
+
   <div class="voice">
     <code id="voiceId"></code>
     <select id="voice" aria-label="Suara"></select>
@@ -82,7 +97,7 @@
     <button id="stop" disabled>Stop</button>
   </div>
 
-  <p class="hint">Tag ekspresi di teks: [senyum] [kaget] [sedih] [netral] [ketawa]</p>
+  <p class="hint">Tag ekspresi di teks: [senyum] [kaget] [sedih] [netral] [ketawa] [jempol]</p>
   <p class="status" id="status"></p>
 </main>
 
@@ -135,7 +150,7 @@
     onLoad: () => { rive_.resizeDrawingSurfaceToCanvas(); vm = rive_.viewModelInstance; greetWhenVisible(); },
     onLoadError: () => setStatus("Gagal memuat wayan.riv. Buka lewat server.py, bukan dari file.", true),
   });
-  const setNum = (name, v) => { if (vm) vm.number(name).value = v; };
+  const setNum = (name, v) => { if (vm) vm.number(name).value = v; if (name === "expression") showExpr(v); };
   const setTalking = (on) => { if (vm) vm.boolean("talking").value = on; };
 
   // Gestures on the Aksi layer: FaceVM.action picks the timeline, 0 returns to rest.
@@ -164,7 +179,7 @@
   }
   function playGreeting() {
     if (session && !session.done) return; // already talking
-    playGesture("salam", () => setNum("expression", 0));
+    playGesture("salam", () => setNum("expression", picked.expr));
     gesture.timers.push(setTimeout(() => setNum("expression", 1), 450)); // smile into the bow
   }
   // The state machine only leaves A_Rest, so a gesture that is still playing goes
@@ -713,7 +728,11 @@
     setTalking(false);
     $("speak").disabled = false;
     $("stop").disabled = true;
-    setTimeout(() => { if (session === s || !session || session.done) setNum("expression", 0); }, 1500);
+    const ended = performance.now();
+    setTimeout(() => {
+      if (picked.at > ended) return; // a try-out button was pressed meanwhile
+      if (session === s || !session || session.done) { picked.expr = 0; setNum("expression", 0); }
+    }, 1500);
   }
 
   function stop() {
@@ -722,6 +741,27 @@
     try { session.synth.close(); } catch (_) {}
     finish(session);
   }
+
+  // ---- Try-out buttons ------------------------------------------------------
+  // A face stays until another is picked. A gesture plays once with a smile, then
+  // hands back the picked face. Any button stops speech first.
+  const picked = { expr: 0, at: 0 };
+  function showExpr(v) {
+    document.querySelectorAll(".moves [data-expr]").forEach((b) => b.classList.toggle("on", +b.dataset.expr === v));
+  }
+  document.querySelectorAll(".moves button").forEach((b) => b.addEventListener("click", () => {
+    stop();
+    picked.at = performance.now();
+    if (b.dataset.expr) {
+      picked.expr = +b.dataset.expr;
+      setNum("expression", picked.expr);
+      return;
+    }
+    const name = b.dataset.gesture;
+    playGesture(name, () => setNum("expression", picked.expr));
+    if (name === "salam") gesture.timers.push(setTimeout(() => setNum("expression", 1), 450)); // smile into the bow
+    else setNum("expression", 1);
+  }));
 
   $("speak").onclick = speak;
   $("stop").onclick = stop;

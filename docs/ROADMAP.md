@@ -230,12 +230,13 @@ Aturan:
 - [x] Background (2026-10-23): Recraft V4.1 vector, 2:3 seperti panggung. Pura pertama ditolak (gerbang tertutup Wayan), Pura B (gerbang di kiri-kanan) dan dua latar baru dibandingkan di `assets/preview/bg_compare.html`. Rozi memilih **rumah adat Bali** (`bg_rumah.svg`, angkul-angkul + bale) dengan langit krem diganti biru (edit SVG, bunga kamboja tetap putih) supaya udeng dan baju Wayan kontras. Wayan digambar 66% lebar panggung, berdiri 2% dari bawah (`--wayan`). Total background $0.56
 - [x] Background bergerak (2026-10-23): `scripts/bg_layers.py` memecah `bg_rumah.svg` jadi lapisan belakang, pohon, depan (ditumpuk ulang identik piksel dengan aslinya). Di halaman: 3 awan gambar sendiri (`bg_cloud.svg`) lewat pelan 70/95/120 dtk, pohon kamboja bergoyang ±1,2° tiap 5,6 dtk dari pangkal batang; salinan cermin di luar tepi kiri supaya tidak ada celah langit. Mati otomatis kalau "kurangi gerakan" aktif. Gratis (tanpa Recraft). Preview: `assets/preview/bg_motion.html`
 - [x] Halaman hidup (2026-10-23): bayangan lembut di bawah sandal Wayan; bunga kamboja (`bg_flower.svg`, diambil dari pohon) jatuh melayang tiap 8–12 dtk dan rebah di lantai kiri kakinya; saat jempol pohon tersentak (+2,2° meredam), 3 bunga rontok, dan bayangan melebar/menyempit mengikuti BODY_SY. Semua mati kalau "kurangi gerakan" aktif. Gratis
+- [x] Toleh kepala (2026-10-23): rig **2,5D berlapis** (`scripts/head_rig25d.py` membangun grup `Head25` dari master: kulit yang dipangkas selebar wajah, udeng + rambut, simpul, lipatan panjang yang ditambat di tepi udeng dan memanjang, bunga + telinga kiri satu blok, telinga kanan, cambang). Kulit tidak bergerak sehingga siluet tetap bulat; lapisan lain bergeser utuh sesuai kedalaman (`scripts/head_turn.py`, binding `turn4_*`), mata jauh menyempit. Tidak ada tukar gambar, jadi mulus di tiap frame. Cara yang ditolak dulu: tulang membengkokkan kepala (peang), tukar kepala 3/4 Gemini (patah), morph dua gambar (tengahnya kacau), lembar sudut Gemini/ChatGPT (arah dan udeng salah). Halaman: `HEAD_SHARE` 1, pegas sedikit lewat. Frame runtime + pemutar: `assets/preview/head_turn.html`
 - [x] Script: `scripts/salam_keys.py` (tulis ulang keyframe A_Salam, bisa dijalankan ulang) dan `scripts/rive_frames.py` (render frame timeline mana pun ke PNG untuk lembar review, lalu kembalikan pose diam)
 - [x] Coba K1 (pose tengah) lewat Recraft inpaint 2× ($0.16): gagal, telapak selalu menempel. Diganti pose bone
 
 **Gerbang:** Rozi menonton tiap aksi di browser dan setuju sebelum lanjut ke Fase 7.
 
-Biaya Recraft: **$1.30** (background $0.56, jempol $0.47, percobaan K1 $0.16, sebelumnya $0.11) (vectorize tangan + silang tangan $0.02, inpaint 2 variasi $0.08, vectorize tangan menyatu $0.01).
+Biaya Recraft: **$1.54** (kepala 3/4 $0.24, background $0.56, jempol $0.47, percobaan K1 $0.16, sebelumnya $0.11) (vectorize tangan + silang tangan $0.02, inpaint 2 variasi $0.08, vectorize tangan menyatu $0.01).
 
 ---
 

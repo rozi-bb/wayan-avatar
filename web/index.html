@@ -265,9 +265,10 @@
   const head = { x: 0, y: 0, vx: 0, vy: 0 };
   const cursor = { inside: false, movedAt: -Infinity };
   const idle = { until: 0, stops: [], last: -1, microAt: 0 };
-  const HEAD_SHARE = 0.75; // how far the head turns toward what he looks at
+  const HEAD_SHARE = 1;    // how far the head turns toward what he looks at (the layered head turns up to 1)
   const EYE_RETURN = 0.35; // how much the eyes recentre once the head has turned
   const HEAD_SPRING = 8;   // rad/s; the head settles in about 0.6 s
+  const HEAD_DAMPING = 0.75; // below 1 the head overshoots ~1% and settles back, like a real neck
 
   // Start a saccade. A micro-saccade jitters the eyes without moving the target,
   // so the head stays put.
@@ -360,9 +361,9 @@
       eye.y = eye.fromY + (eye.toY - eye.fromY) * e;
     }
 
-    // Critically damped spring: the head lags the eyes and settles without wobble.
+    // Damped spring: the head lags the eyes and settles with a barely visible overshoot.
     for (const [k, v] of [["x", "vx"], ["y", "vy"]]) {
-      const a = HEAD_SPRING ** 2 * (target[k] * HEAD_SHARE - head[k]) - 2 * HEAD_SPRING * head[v];
+      const a = HEAD_SPRING ** 2 * (target[k] * HEAD_SHARE - head[k]) - 2 * HEAD_DAMPING * HEAD_SPRING * head[v];
       head[v] += a * dt;
       head[k] += head[v] * dt;
     }

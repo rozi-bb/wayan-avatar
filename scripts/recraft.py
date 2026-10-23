@@ -13,6 +13,7 @@ Usage:
     python3 scripts/recraft.py vectorize assets/drafts/name_1.webp --out assets/vector/name
     python3 scripts/recraft.py style ref1.png ref2.png --model recraftv4_styles
     python3 scripts/recraft.py inpaint image.png mask.png "prompt" --n 2 --out assets/drafts/name
+    python3 scripts/recraft.py i2i image.png "prompt" --strength 0.5 --out assets/drafts/name
 """
 
 import argparse
@@ -186,6 +187,35 @@ def cmd_inpaint(args):
         download(image["url"], ROOT / f"{args.out}{suffix}{ext}")
 
 
+def cmd_i2i(args):
+    # A new image built on an existing one; strength 0 keeps it, 1 ignores it.
+    # Keeps the subject's identity better than inpaint, which redraws from the prompt alone.
+    body = {
+        "image_url": data_url(args.image),
+        "prompt": args.prompt,
+        "strength": args.strength,
+        "model": args.model,
+        "n": args.n,
+    }
+    if "vector" not in args.model:
+        body["image_format"] = args.image_format
+
+    est = PRICES.get(args.model, 0) * args.n
+    if args.dry_run:
+        shown = {k: (v[:40] + "...") if k.endswith("_url") else v for k, v in body.items()}
+        print(json.dumps(shown, indent=2))
+        print(f"\nestimated cost: ${est:.3f}")
+        return
+
+    print(f"image to image {args.n}x {args.model} strength {args.strength} (est ${est:.3f}) ...")
+    result = call("POST", "/images/imageToImage", body)
+    print(f"  charged {result['credits']} units (${result['credits'] / 1000:.3f})")
+    ext = ext_for(args.model, args.image_format)
+    for i, image in enumerate(result["data"], 1):
+        suffix = f"_{i}" if args.n > 1 else ""
+        download(image["url"], ROOT / f"{args.out}{suffix}{ext}")
+
+
 def cmd_style(args):
     print(f"creating style from {len(args.images)} reference(s) (est $0.005) ...")
     body = {
@@ -238,6 +268,17 @@ def main():
     ip.add_argument("--out", default="assets/drafts/inpaint", help="path prefix, no extension")
     ip.add_argument("--dry-run", action="store_true", help="print body + cost only")
     ip.set_defaults(func=cmd_inpaint)
+
+    i2 = sub.add_parser("i2i", help="image to image ($0.035 V4.1, $0.04 V3)")
+    i2.add_argument("image")
+    i2.add_argument("prompt")
+    i2.add_argument("--strength", type=float, default=0.5, help="0 = same as input, 1 = least similar")
+    i2.add_argument("--model", default="recraftv4_1")
+    i2.add_argument("--n", type=int, default=1, help="1 to 6")
+    i2.add_argument("--image-format", default="png", choices=["webp", "png"])
+    i2.add_argument("--out", default="assets/drafts/i2i", help="path prefix, no extension")
+    i2.add_argument("--dry-run", action="store_true", help="print body + cost only")
+    i2.set_defaults(func=cmd_i2i)
 
     s = sub.add_parser("style", help="create a reusable style from references")
     s.add_argument("images", nargs="+")

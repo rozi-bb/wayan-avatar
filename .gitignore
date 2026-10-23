@@ -6,3 +6,4 @@
 __pycache__/
 *.pyc
 .DS_Store
+scripts/.turn_geometry.json

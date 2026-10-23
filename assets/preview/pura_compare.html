@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bandingkan Pura</title>
+<style>
+  body { margin: 0; padding: 16px; background: #161616; color: #eee; font: 14px system-ui, sans-serif; }
+  h1 { font-size: 17px; margin: 0 0 4px; }
+  p { margin: 0 0 14px; color: #aaa; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  figure { margin: 0; width: min(320px, 44vw); }
+  /* Same stage as web/index.html: 2:3, background cover, Wayan at 78% standing 2% above the bottom. */
+  .stage { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 24px; overflow: hidden; background: center / cover; }
+  .stage img { position: absolute; left: 50%; bottom: 2%; width: 78%; transform: translateX(-50%); }
+  figcaption { padding: 8px 2px; }
+</style>
+</head>
+<body>
+<h1>Pura lama vs Pura baru (Wayan 78%, seperti di halaman)</h1>
+<p>Ukuran panggung dan posisi Wayan sama persis dengan halaman.</p>
+<div class="row">
+  <figure><div class="stage" style="background-image:url(../vector/bg_pura.svg)"><img src="backgrounds/wayan.png"></div><figcaption>A. Pura lama (gerbang di tengah)</figcaption></figure>
+  <figure><div class="stage" style="background-image:url(../vector/bg_pura2_2.svg)"><img src="backgrounds/wayan.png"></div><figcaption>B. Pura baru (gerbang di kiri-kanan)</figcaption></figure>
+</div>
+</body>
+</html>

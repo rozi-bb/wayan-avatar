@@ -12,8 +12,9 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 16px system-ui, sans-serif; }
   main { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  .stage { width: 100%; max-width: 420px; background: var(--stage) url(bg_pura.svg) center / cover; border-radius: 24px; overflow: hidden; }
-  canvas { display: block; width: 100%; aspect-ratio: 2 / 3; }
+  .stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 2 / 3; background: var(--stage) url(bg_rumah.svg) center / cover; border-radius: 24px; overflow: hidden; }
+  /* Wayan is drawn smaller than the stage so the house gate and pavilion stay visible around him. */
+  canvas { position: absolute; left: 50%; bottom: 2%; width: var(--wayan, 66%); aspect-ratio: 2 / 3; transform: translateX(-50%); }
   .voice { display: flex; flex-direction: column; align-items: center; gap: 6px; }
   .voice code { font: 15px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
   select { font: inherit; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); max-width: 100%; }

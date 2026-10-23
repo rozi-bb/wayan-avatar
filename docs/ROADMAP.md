@@ -227,13 +227,13 @@ Aturan:
 - [x] Om Swastiastu versi bone + tukar gambar (2026-10-23): lengan asli naik pakai bone (f0–f19, makin cepat), di f20 (333 ms) diganti `Pose_Salam` (K2, gambar tangan menyatu), badan memantul lalu menunduk, f90 balik ke bone dan turun ke default (2 s). Aksi lain (Udeng, Yes, Silang), `Pose_Silang` dan `HandPush` dihapus atas permintaan Rozi; layer Aksi tinggal `A_Rest` ↔ `A_Salam` (`action` = 1). Halaman web memutar salam sekali setelah splash Rive hilang (+600 ms, senyum saat menunduk) dan membatalkannya begitu `speak()` dipanggil; transisi keluar A_Salam → A_Rest 0 ms supaya pembatalan tidak menumpuk dua lapis transparan. Lembar frame: `assets/preview/salam_k1.html`. Diuji di browser: urutan benar, tidak ada error
 - [x] Jempol 👍 (2026-10-23): `A_Jempol` (`action` = 2, 1,8 s). Lengan kanan naik pakai bone, di f15 tangan bulat diganti tangan jempol hasil Recraft V4.1 (`Hand_R_ThumbUp`, pivot di pergelangan, di balik manset) bersama siku bulat `ElbowThumb_R` dan garis lipatan lengan bawah; jempol memantul (lewat, balik, pop, goyang), badan memantul, kepala mengangguk, lalu turun dengan pergantian balik di f80. Dipicu tag `[jempol]`/`[thumbsup]` di teks (dengan senyum). `A_Rest` mengembalikan tangan, siku dan bahu supaya pembatalan bersih. Lembar frame: `assets/preview/jempol.html`. Keyframe: `scripts/jempol_keys.py`
 - [x] Coba jempol lewat inpaint 2×4 ($0.32): sambungan bahu-lengan-tangan tidak natural, tidak dipakai. Tangan saja via generate V4.1 ($0.14) + vectorize ($0.01)
-- [x] Background (2026-10-23): 3 pilihan vector langsung dari Recraft V4.1 vector, 2:3 seperti panggung (`assets/vector/bg_pura.svg`, `bg_sawah.svg`, `bg_pantai.svg`, $0.24). Rozi memilih **Pura**; `web/bg_pura.svg` (tanpa metadata C2PA) jadi latar `.stage`. Pratinjau: `assets/preview/backgrounds.html`
+- [x] Background (2026-10-23): Recraft V4.1 vector, 2:3 seperti panggung. Pura pertama ditolak (gerbang tertutup Wayan), Pura B (gerbang di kiri-kanan) dan dua latar baru dibandingkan di `assets/preview/bg_compare.html`. Rozi memilih **rumah adat Bali** (`bg_rumah.svg`, angkul-angkul + bale) dengan langit krem diganti biru (edit SVG, bunga kamboja tetap putih) supaya udeng dan baju Wayan kontras. Wayan digambar 66% lebar panggung, berdiri 2% dari bawah (`--wayan`). Total background $0.56
 - [x] Script: `scripts/salam_keys.py` (tulis ulang keyframe A_Salam, bisa dijalankan ulang) dan `scripts/rive_frames.py` (render frame timeline mana pun ke PNG untuk lembar review, lalu kembalikan pose diam)
 - [x] Coba K1 (pose tengah) lewat Recraft inpaint 2× ($0.16): gagal, telapak selalu menempel. Diganti pose bone
 
 **Gerbang:** Rozi menonton tiap aksi di browser dan setuju sebelum lanjut ke Fase 7.
 
-Biaya Recraft: **$0.98** (background $0.24, jempol $0.47, percobaan K1 $0.16, sebelumnya $0.11) (vectorize tangan + silang tangan $0.02, inpaint 2 variasi $0.08, vectorize tangan menyatu $0.01).
+Biaya Recraft: **$1.30** (background $0.56, jempol $0.47, percobaan K1 $0.16, sebelumnya $0.11) (vectorize tangan + silang tangan $0.02, inpaint 2 variasi $0.08, vectorize tangan menyatu $0.01).
 
 ---
 

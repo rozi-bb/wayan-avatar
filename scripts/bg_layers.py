@@ -9,6 +9,7 @@ sky rectangle) and writes three SVGs next to it:
   bg_back.svg   paths drawn before the tree (wall, floor, back of the bale)
   bg_tree.svg   the frangipani tree, cropped to TREE_BOX so it can sway
   bg_front.svg  everything drawn after the tree (gate, bale, pots)
+  bg_flower.svg one blossom from the tree, for the blossoms that fall
 
 The sky is left out: the page paints it as a colour and floats clouds over it.
 The tree is cut by the left edge of the picture, so a mirrored copy is drawn
@@ -26,6 +27,8 @@ TREE = [*range(137, 163), *range(198, 212), *range(322, 336), *range(337, 346),
         406, 474, 476, 477, 480, 481, 482, 483, 484]
 BACK_END = 137                       # paths 1..136 sit behind the tree
 TREE_BOX = (-120, 480, 540, 580)     # x, y, w, h in picture units
+FLOWER = [323, 324, 325, 326, 327, 328, 329, 332]  # petals and centre, not the leaf bits between them
+FLOWER_BOX = (60, 536, 92, 98)
 W, H = 1331, 2048
 
 
@@ -48,6 +51,8 @@ def main():
         "bg_back.svg": svg(f"0 0 {W} {H}", "\n".join(back) + "\n"),
         "bg_tree.svg": svg(f"{x} {y} {w} {h}", tree_body),
         "bg_front.svg": svg(f"0 0 {W} {H}", "\n".join(front) + "\n"),
+        "bg_flower.svg": svg(" ".join(map(str, FLOWER_BOX)),
+                             "\n".join(paths[i] for i in FLOWER) + "\n"),
     }
     for name, text in out.items():
         (SRC.parent / name).write_text(text)

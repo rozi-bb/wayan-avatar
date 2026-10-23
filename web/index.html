@@ -20,8 +20,8 @@
   .back { background-image: url(bg_back.svg); }
   .front { background-image: url(bg_front.svg); }
   /* Tree box from bg_layers.py; it sways round the trunk where it leaves the left edge (-40, 1000). */
-  .tree { position: absolute; left: -9.0158%; top: 23.4375%; width: 40.5710%; height: 28.3203%;
-          background: url(bg_tree.svg) center / 100% 100% no-repeat;
+  .tree-box { position: absolute; left: -9.0158%; top: 23.4375%; width: 40.5710%; height: 28.3203%; transform-origin: 14.81% 89.66%; }
+  .tree { position: absolute; inset: 0; background: url(bg_tree.svg) center / 100% 100% no-repeat;
           transform-origin: 14.81% 89.66%; animation: sway 5.6s cubic-bezier(.45,0,.55,1) infinite alternate; will-change: transform; }
   @keyframes sway { from { transform: rotate(-1.2deg); } to { transform: rotate(1.2deg); } }
   /* Each cloud rides a full-width track from just off the left edge to just off the right. */
@@ -31,7 +31,12 @@
   .t2 { top: 13%; --w: 20%; animation-duration: 95s;  animation-delay: -70s; opacity: .9; }
   .t3 { top: 16%; --w: 24%; animation-duration: 120s; animation-delay: -30s; }
   @keyframes drift { from { transform: translateX(0); } to { transform: translateX(calc(100% + var(--w))); } }
+  /* A blossom from the tree (bg_flower.svg), moved by dropBlossom in picture units. */
+  .blossom { position: absolute; left: 0; top: 0; width: 6.9%; aspect-ratio: 92 / 98; background: url(bg_flower.svg) center / contain no-repeat; pointer-events: none; will-change: transform, opacity; }
   @media (prefers-reduced-motion: reduce) { .tree, .track { animation: none; } }
+  /* Soft shadow under the sandals, measured for Wayan at 66%: soles 9.5% from the bottom, feet 35-65% across. */
+  .shadow { position: absolute; left: 50%; bottom: 7.6%; width: 38%; aspect-ratio: 6 / 1; translate: -50% 0;
+            background: radial-gradient(closest-side, rgba(110,80,50,.3) 70%, rgba(110,80,50,0)); }
   /* Wayan is drawn smaller than the stage so the house gate and pavilion stay visible around him. */
   canvas { position: absolute; left: 50%; bottom: 2%; width: var(--wayan, 66%); aspect-ratio: 2 / 3; transform: translateX(-50%); }
   .voice { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -57,9 +62,10 @@
       <div class="track t2"><div class="cloud"></div></div>
       <div class="track t3"><div class="cloud"></div></div>
       <div class="layer back"></div>
-      <div class="tree"></div>
+      <div class="tree-box"><div class="tree"></div></div>
       <div class="layer front"></div>
     </div>
+    <div class="shadow"></div>
     <canvas id="c" width="840" height="1260"></canvas>
   </div>
 
@@ -137,7 +143,7 @@
   // [jempol] tag in the text. The free Rive runtime shows a black splash for a few
   // seconds after loading, so the greeting waits until sampled canvas pixels stop
   // being opaque black.
-  const GESTURES = { salam: { action: 1, ms: 2000 }, jempol: { action: 2, ms: 1800 } };
+  const GESTURES = { salam: { action: 1, ms: 2000 }, jempol: { action: 2, ms: 1800, cheer: true } };
   const gesture = { timers: [] };
   function greetWhenVisible() {
     const ctx = $("c").getContext("2d");
@@ -166,9 +172,10 @@
   function playGesture(name, onEnd) {
     const busy = gesture.timers.length > 0;
     endGesture();
-    const { action, ms } = GESTURES[name];
+    const { action, ms, cheer: cheers } = GESTURES[name];
     const start = () => {
       setNum("action", action);
+      if (cheers) cheer();
       gesture.timers.push(setTimeout(() => { endGesture(); if (onEnd) onEnd(); }, ms));
     };
     if (busy) gesture.timers.push(setTimeout(start, 50));
@@ -178,6 +185,54 @@
     gesture.timers.forEach(clearTimeout);
     gesture.timers = [];
     setNum("action", 0);
+  }
+
+  // The courtyard joins in: a blossom drifts off the frangipani now and then, and a thumbs-up
+  // kicks the tree, shakes a few blossoms loose and squashes the shadow with Wayan's bounce.
+  const calm = matchMedia("(prefers-reduced-motion: reduce)");
+  const PIC_W = 1331;                                   // picture units, as in scripts/bg_layers.py
+  function dropBlossom(quick) {
+    if (calm.matches) return;
+    const scene = document.querySelector(".scene");
+    const el = document.createElement("div");
+    el.className = "blossom";
+    scene.append(el);
+    const u = scene.clientWidth / PIC_W, half = el.offsetWidth / 2;
+    const side = () => (Math.random() < 0.5 ? -1 : 1);
+    const x0 = 180 + Math.random() * 180, y0 = 640 + Math.random() * 70;     // under the canopy
+    const x1 = 260 + Math.random() * 140, y1 = 1800 + Math.random() * 80;    // floor, clear of his feet
+    const sway = (30 + Math.random() * 25) * side(), spin = (160 + Math.random() * 160) * side();
+    const fall = quick ? 3400 : 6500, rest = 1400, end = fall / (fall + rest);
+    const at = (x, y, r, sy) => `translate(${x * u - half}px, ${y * u - half}px) scale(1, ${sy}) rotate(${r}deg)`;
+    const frames = [];
+    for (let k = 0; k <= 30; k++) {
+      const s = k / 30, ease = s * s * (3 - 2 * s);
+      frames.push({ offset: s * end, opacity: Math.min(1, k / 3),
+        transform: at(x0 + (x1 - x0) * s + sway * Math.sin(s * Math.PI * 3), y0 + (y1 - y0) * ease, spin * s, 1) });
+    }
+    const flat = at(x1, y1, spin, 0.6);                 // lies down on the floor, then fades
+    frames.push({ offset: end + (1 - end) * 0.15, opacity: 1, transform: flat }, { offset: 1, opacity: 0, transform: flat });
+    el.animate(frames, { duration: fall + rest, easing: "linear" }).onfinish = () => el.remove();
+  }
+  (function blossomLoop() {
+    setTimeout(() => { if (!document.hidden) dropBlossom(false); blossomLoop(); }, 8000 + Math.random() * 4000);
+  })();
+
+  // Shadow width follows BODY_SY in scripts/jempol_keys.py (frame: body scale-y %), at 60 fps.
+  const JEMPOL_BODY_SY = [[0, 100], [6, 98.6], [16, 101.8], [24, 99.3], [32, 100.4], [38, 100], [70, 100],
+                          [82, 99.2], [92, 100.8], [100, 100], [108, 100]];
+  function cheer() {
+    if (calm.matches) return;
+    document.querySelector(".shadow").animate(
+      JEMPOL_BODY_SY.map(([f, sy]) => ({ offset: f / 108, scale: `${1 + (100 - sy) * 0.015} 1`, easing: "ease-in-out" })),
+      { duration: 1800 });
+    // The thumb pops at frames 15-19; the tree takes the kick then and rings down.
+    gesture.timers.push(setTimeout(() => {
+      document.querySelector(".tree-box").animate(
+        [0, 2.2, -1.6, 1, -0.5, 0].map(r => ({ transform: `rotate(${r}deg)`, easing: "ease-in-out" })),
+        { duration: 1600 });
+      [0, 180, 380].forEach(ms => setTimeout(() => dropBlossom(true), ms));
+    }, 280));
   }
 
   // Gaze, modelled on how people look around:

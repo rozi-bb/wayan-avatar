@@ -11,8 +11,11 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 16px system-ui, sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  .stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 2 / 3; background: rgb(107,168,210); border-radius: 24px; overflow: hidden; }
+  /* The stage is as big as fits: 560px wide at most, and never taller than the window. */
+  main { --w: min(100%, 560px, calc((100svh - 32px) * 2 / 3)); margin: 0 auto; padding: 16px 16px 40px;
+         display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .stage { position: relative; width: var(--w); aspect-ratio: 2 / 3; background: rgb(107,168,210); border-radius: 24px;
+           overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,.4); }
   /* The courtyard is split into layers by scripts/bg_layers.py. The picture is 1331 x 2048; the scene keeps
      that shape and is centred, which is what background-size: cover did on the 2:3 stage. */
   .scene { position: absolute; left: 0; top: 50%; width: 100%; aspect-ratio: 1331 / 2048; transform: translateY(-50%); }
@@ -48,23 +51,33 @@
             background: radial-gradient(closest-side, rgba(110,80,50,.3) 70%, rgba(110,80,50,0)); }
   /* Wayan is drawn smaller than the stage so the house gate and pavilion stay visible around him. */
   canvas { position: absolute; left: 50%; bottom: 2%; width: var(--wayan, 66%); aspect-ratio: 2 / 3; transform: translateX(-50%); }
-  .voice { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
-  .voice code { font: 15px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
-  select { font: inherit; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); max-width: 100%; }
-  .say { display: flex; gap: 12px; width: 100%; }
-  input[type=text] { flex: 1; min-width: 0; font: inherit; font-size: 18px; padding: 12px 16px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); }
-  input[type=text]:focus { outline: none; border-color: var(--accent); }
-  button { font: inherit; padding: 12px 20px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); cursor: pointer; }
-  #speak { background: var(--accent); border-color: var(--accent); color: #1d1d1d; font-weight: 700; }
+  .panel { width: var(--w); min-width: min(100%, 360px); display: flex; flex-direction: column; gap: 20px; }
+  button { font: inherit; color: var(--text); cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
-  .moves { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 480px; }
-  .moves button { padding: 7px 12px; font-size: 14px; border-radius: 999px; }
-  .moves button.on { border-color: var(--accent); color: var(--accent); }
-  .moves .sep { width: 100%; height: 0; }
-  .hint { color: var(--muted); font-size: 14px; text-align: center; margin: 0; }
-  .status { min-height: 1.4em; font-size: 14px; margin: 0; text-align: center; }
+  .moves { display: flex; flex-direction: column; gap: 16px; }
+  .group { display: flex; flex-direction: column; gap: 8px; }
+  .label { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .chips { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 8px; }
+  .chips button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 11px 4px 10px; font-size: 14px;
+                  border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+                  transition: border-color .15s, background-color .15s, color .15s; }
+  .chips button:hover { border-color: #6a6a6a; background: #323232; }
+  .chips .emo { font-size: 22px; line-height: 1; }
+  .chips button.on { border-color: var(--accent); background: rgba(245,191,3,.1); color: var(--accent); }
+  .composer { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); transition: border-color .15s; }
+  .composer:focus-within { border-color: var(--accent); }
+  textarea { display: block; width: 100%; min-height: 128px; resize: none; font: inherit; font-size: 17px; line-height: 1.55;
+             padding: 14px 16px; border: 0; border-radius: 16px 16px 0 0; background: transparent; color: var(--text); }
+  textarea:focus { outline: none; }
+  textarea::placeholder { color: var(--muted); }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px 12px 12px 16px; border-top: 1px solid var(--line); }
+  .tags { flex: 1 1 220px; margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+  .tags code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); background: #333; padding: 2px 7px; border-radius: 6px; }
+  .actions { display: flex; gap: 8px; margin-left: auto; }
+  .actions button { padding: 10px 20px; border-radius: 10px; font-weight: 600; border: 1px solid var(--line); background: transparent; }
+  #speak { background: var(--accent); border-color: var(--accent); color: #1d1d1d; }
+  .status { min-height: 1.4em; font-size: 14px; margin: -8px 0 0; text-align: center; color: var(--muted); }
   .status.error { color: var(--error); font-weight: 600; }
-  @media (max-width: 520px) { .say { flex-direction: column; } }
 </style>
 </head>
 <body>
@@ -86,33 +99,43 @@
     <canvas id="c" width="840" height="1260"></canvas>
   </div>
 
-  <div class="moves" role="group" aria-label="Coba ekspresi dan gerakan">
-    <button data-expr="0" class="on">😐 Netral</button>
-    <button data-expr="1">🙂 Senyum</button>
-    <button data-expr="2">😮 Kaget</button>
-    <button data-expr="3">😢 Sedih</button>
-    <button data-expr="4">😆 Ketawa</button>
-    <span class="sep"></span>
-    <button data-gesture="salam">🙏 Om Swastiastu</button>
-    <button data-gesture="jempol">👍 Jempol</button>
-    <button data-gesture="udeng">🙌 Rapikan udeng</button>
-  </div>
+  <div class="panel">
+    <div class="moves">
+      <div class="group" role="group" aria-labelledby="exprLabel">
+        <span class="label" id="exprLabel">Ekspresi</span>
+        <div class="chips" style="--cols: 5">
+          <button data-expr="0" class="on"><span class="emo" aria-hidden="true">😐</span>Netral</button>
+          <button data-expr="1"><span class="emo" aria-hidden="true">🙂</span>Senyum</button>
+          <button data-expr="2"><span class="emo" aria-hidden="true">😮</span>Kaget</button>
+          <button data-expr="3"><span class="emo" aria-hidden="true">😢</span>Sedih</button>
+          <button data-expr="4"><span class="emo" aria-hidden="true">😆</span>Ketawa</button>
+        </div>
+      </div>
+      <div class="group" role="group" aria-labelledby="moveLabel">
+        <span class="label" id="moveLabel">Gerakan</span>
+        <div class="chips" style="--cols: 3">
+          <button data-gesture="salam"><span class="emo" aria-hidden="true">🙏</span>Om Swastiastu</button>
+          <button data-gesture="jempol"><span class="emo" aria-hidden="true">👍</span>Jempol</button>
+          <button data-gesture="udeng"><span class="emo" aria-hidden="true">🙌</span>Rapikan udeng</button>
+        </div>
+      </div>
+    </div>
 
-  <div class="voice">
-    <code id="voiceId"></code>
-    <select id="voice" aria-label="Suara"></select>
-    <label class="hint" id="localNamesRow"><input type="checkbox" id="localNames" checked>
-      Nama Indonesia (Bali, Wayan, …) diucapkan dengan logat Indonesia</label>
+    <div class="group">
+      <label class="label" for="text">Kalimat</label>
+      <div class="composer">
+        <textarea id="text" rows="4" maxlength="400" placeholder="Tulis kalimat untuk Wayan…"></textarea>
+        <div class="bar">
+          <p class="tags" aria-label="Tag yang bisa dipakai"><code>[senyum]</code><code>[kaget]</code><code>[sedih]</code><code>[netral]</code><code>[ketawa]</code><code>[jempol]</code></p>
+          <div class="actions">
+            <button id="stop" disabled>Berhenti</button>
+            <button id="speak">Bicara</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="status" id="status" role="status"></p>
   </div>
-
-  <div class="say">
-    <input id="text" type="text" maxlength="400" autocomplete="off" aria-label="Teks untuk diucapkan">
-    <button id="speak">Speak</button>
-    <button id="stop" disabled>Stop</button>
-  </div>
-
-  <p class="hint">Tag ekspresi di teks: [senyum] [kaget] [sedih] [netral] [ketawa] [jempol]</p>
-  <p class="status" id="status"></p>
 </main>
 
 <script src="https://unpkg.com/@rive-app/canvas@2.44.0"></script>
@@ -120,24 +143,14 @@
 <script>
   // ---- Voices ---------------------------------------------------------------
   // Brian, picked by Rozi from the male English Dragon HD voices Azure lists for this region.
-  // They read [laughter] in any language and pick the emotion up from the text itself.
+  // He reads [laughter] in any language and picks the emotion up from the text itself.
   //     Emotion markers ([happy], [surprised]) are deliberately not sent: they stretched
   //     the words next to them ("Hi" 280 -> 600 ms, "Bali" 200 -> 400 ms with odd vowels).
   //     <prosody> is ignored by HD voices, so there is no pitch setting.
-  // tested: viseme output already confirmed for this voice.
   // Dragon HD temperature (0-1): lower is steadier, higher varies more per take.
   // Pinned at 1, Azure's documented default, which Rozi picked.
+  const VOICE = { id: "en-US-Brian:DragonHDLatestNeural", lang: "en-US", hd: true };
   const TEMPERATURE = 1;
-  const voice = (id, group, note = "", extra = {}) => {
-    const [l, country, ...rest] = id.split(":")[0].split("-");
-    const name = rest.join("-").replace(/^./, (c) => c.toUpperCase());
-    const accent = country.toUpperCase() === "US" ? "" : ` (${country.toUpperCase()})`;
-    return { id, lang: `${l}-${country.toUpperCase()}`, hd: true, group,
-             label: name + accent + (note ? " — " + note : ""), ...extra };
-  };
-  const VOICES = [
-    voice("en-US-Brian:DragonHDLatestNeural", "Dragon HD", "", { tested: true }),
-  ];
   const SAMPLE = "[senyum] Hi! I'm Wayan, from Bali. [kaget] Whoa, you came to visit! [ketawa] Just kidding, I knew you would. [jempol] Great choice!";
 
   // Tag -> FaceVM.expression, or a gesture. Only [ketawa] also changes the audio (an HD laugh).
@@ -425,22 +438,13 @@
 
   // ---- UI -------------------------------------------------------------------
   const setStatus = (msg, isError = false) => { $("status").textContent = msg; $("status").className = "status" + (isError ? " error" : ""); };
-  const groups = {};
-  VOICES.forEach((v, i) => {
-    if (!groups[v.group]) { groups[v.group] = document.createElement("optgroup"); groups[v.group].label = v.group; $("voice").append(groups[v.group]); }
-    groups[v.group].append(new Option((v.tested ? "✓ " : "") + v.label, i)); // ✓ = viseme output confirmed
-  });
-  const currentVoice = () => VOICES[Number($("voice").value)];
   // English HD voices can switch accent mid-sentence with <lang>.
   const canLocalize = (v) => v.hd && v.lang.startsWith("en");
-  const showVoice = () => {
-    const v = currentVoice();
-    $("voiceId").textContent = v.id;
-    $("localNamesRow").style.visibility = canLocalize(v) ? "visible" : "hidden";
-    if (!$("text").value || $("text").value === SAMPLE) $("text").value = SAMPLE;
-  };
-  $("voice").onchange = showVoice;
-  showVoice();
+  // The text box grows with its text, so the whole sentence is always in view.
+  const fitText = () => { const t = $("text"); t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; };
+  $("text").value = SAMPLE;
+  $("text").addEventListener("input", fitText);
+  fitText();
 
   // ---- SSML with tag positions ---------------------------------------------
   const escapeXml = (s) => s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[c]));
@@ -453,7 +457,6 @@
     (_, a, body, z) => body ? `${a}<lang xml:lang="${lang}">${body}</lang>${z}` : a + z);
   const localize = (text, voice) => {
     if (!canLocalize(voice)) return text;
-    if (!$("localNames").checked) return inLang(voice.lang, text);
     return text.split(LOCAL_NAMES).map((s, i) => inLang(i % 2 ? "id-ID" : voice.lang, s)).join("");
   };
 
@@ -503,7 +506,7 @@
     endGesture();
     const raw = $("text").value.trim();
     if (!raw) return;
-    const voice = currentVoice();
+    const voice = VOICE;
     // Created inside the click, otherwise the browser refuses to play it.
     ctx = ctx || new AudioContext();
     ctx.resume();
@@ -816,7 +819,8 @@
 
   $("speak").onclick = speak;
   $("stop").onclick = stop;
-  $("text").addEventListener("keydown", (e) => { if (e.key === "Enter") speak(); });
+  // Enter speaks; Shift+Enter starts a new line.
+  $("text").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); speak(); } });
 </script>
 </body>
 </html>

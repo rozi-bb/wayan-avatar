@@ -51,6 +51,16 @@
             background: radial-gradient(closest-side, rgba(110,80,50,.3) 70%, rgba(110,80,50,0)); }
   /* Wayan is drawn smaller than the stage so the house gate and pavilion stay visible around him. */
   canvas { position: absolute; left: 50%; bottom: 2%; width: var(--wayan, 66%); aspect-ratio: 2 / 3; transform: translateX(-50%); }
+  /* Subtitle on the ground under the sandals. One line clears the soles; a second would cover the sandals,
+     so pieces are cut to one line on a laptop (a phone may still wrap one, evenly).
+     Text size follows the stage width (cqw), 15px on a phone, 22px on the full 560px stage. */
+  .stage { container-type: inline-size; }
+  .subtitle { position: absolute; left: 50%; bottom: 2.5%; translate: -50% 0; width: max-content; max-width: 88%;
+              padding: .35em .8em; border-radius: 14px; background: rgba(20,20,20,.68); backdrop-filter: blur(6px);
+              font-size: clamp(15px, 3.9cqw, 22px); line-height: 1.4; font-weight: 600; text-align: center; text-wrap: balance; color: #fff;
+              opacity: 0; transition: opacity .25s; pointer-events: none; }
+  .subtitle.on { opacity: 1; }
+  .subtitle .later { color: rgba(255,255,255,.55); }
   .panel { width: var(--w); min-width: min(100%, 360px); display: flex; flex-direction: column; gap: 20px; }
   button { font: inherit; color: var(--text); cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
@@ -97,6 +107,7 @@
     </div>
     <div class="shadow"></div>
     <canvas id="c" width="840" height="1260"></canvas>
+    <div class="subtitle" id="subtitle" aria-hidden="true"></div>
   </div>
 
   <div class="panel">
@@ -460,18 +471,32 @@
     return text.split(LOCAL_NAMES).map((s, i) => inLang(i % 2 ? "id-ID" : voice.lang, s)).join("");
   };
 
-  // Returns the SSML and, for each known tag, where its text resumes in the SSML string.
-  // Azure's wordBoundary.textOffset indexes that same string, which is how tags meet audio time.
+  // Returns the SSML and, for each known tag and each word of the subtitle, where it sits in the
+  // SSML string. Azure's wordBoundary.textOffset indexes that same string, which is how both meet audio time.
   function buildSsml(raw, voice) {
     const head = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" ` +
       `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${voice.lang}"><voice name="${voice.id}" parameters="temperature=${TEMPERATURE}">`;
     const tail = "</voice></speak>";
     let body = "";
     let plain = 0; // length of spoken text so far, for voices that send no word positions
-    const tags = [];
+    const tags = [], words = [];
     for (const part of raw.split(/(\[[^\]]*\])/)) {
       const m = part.match(/^\[([^\]]*)\]$/);
-      if (!m) { body += localize(escapeXml(part), voice); plain += part.length; continue; }
+      if (!m) {
+        const piece = localize(escapeXml(part), voice);
+        // <lang> can split a word ("Bali." becomes Bali + "."), so look for its letters only.
+        let from = 0;
+        for (const text of part.match(/\S+/g) || []) {
+          const core = escapeXml(text.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""));
+          let at = core ? piece.indexOf(core, from) : -1;
+          if (at < 0 && core) at = piece.indexOf(core.match(/^[\p{L}\p{N}]*/u)[0], from);
+          if (at >= 0) from = at + 1;
+          words.push({ text, ssml: head.length + body.length + (at >= 0 ? at : from) });
+        }
+        body += piece;
+        plain += part.length;
+        continue;
+      }
       const tag = TAGS[m[1].trim().toLowerCase()];
       if (!tag) continue; // unknown tags are dropped, never spoken
       const before = head.length + body.length;
@@ -480,8 +505,85 @@
       tags.push({ ...tag, before, leading, plainAt: plain });
     }
     tags.forEach((t) => (t.plainFrac = plain ? t.plainAt / plain : 0));
-    return { ssml: head + body + tail, tags };
+    return { ssml: head + body + tail, tags, words: chunkWords(words) };
   }
+
+  // ---- Subtitle -------------------------------------------------------------
+  // The subtitle shows one sentence at a time and the words light up as they are
+  // heard. A short sentence ("Hi!") shares the line with the next one; a long one is
+  // cut into even pieces of one line, at a comma where one is close.
+  const SUB_CHARS = 42;
+  const SUB_SHORT = 24;
+  const sentenceEnd = (w) => /[.!?…]["'”’)]*$/.test(w);
+  const lineLength = (ws) => ws.reduce((n, w) => n + w.text.length + 1, -1);
+  function chunkWords(words) {
+    const sentences = [[]];
+    words.forEach((w, i) => { sentences[sentences.length - 1].push(w); if (sentenceEnd(w.text) && i < words.length - 1) sentences.push([]); });
+    const groups = [];
+    for (const sent of sentences) {
+      const prev = groups[groups.length - 1];
+      if (prev && lineLength(prev) < SUB_SHORT && lineLength(prev) + 1 + lineLength(sent) <= SUB_CHARS) prev.push(...sent);
+      else groups.push(sent);
+    }
+    let chunk = 0;
+    for (const group of groups) {
+      const total = lineLength(group);
+      const step = total / Math.ceil(total / SUB_CHARS);
+      let len = -1, cut = step;
+      group.forEach((w, i) => {
+        w.chunk = chunk;
+        len += w.text.length + 1;
+        const next = group[i + 1];
+        if (!next || total <= SUB_CHARS || len < cut - 12) return;
+        // Break at a comma within 12 characters of an even cut, else at the word end closest to it.
+        if (/,$/.test(w.text) || len + 1 + next.text.length - cut > cut - len) { chunk++; cut = len + step; }
+      });
+      chunk++;
+    }
+    return words;
+  }
+
+  // When each subtitle word is heard. Azure's word time is used, except that HD voices
+  // report some words early, inside the pause before them; such a word is moved to
+  // where the sound resumes. Words Azure does not report light up with the next one.
+  function timeWords(s) {
+    const subs = s.subWords;
+    for (const w of wordsWithOffsets(s)) {
+      let i = -1;
+      subs.forEach((x, j) => { if (x.ssml <= w.off) i = j; });
+      if (i < 0 || subs[i].at !== undefined) continue;
+      if (!s.synthDone && s.receivedMs < w.ms + 1500) break; // audio after it not measured yet
+      let at = w.ms;
+      if (!loudAt(s, at)) {
+        for (let t = at; t <= w.ms + 1500; t += FRAME_MS) if (loudAt(s, t)) { at = t; break; }
+      }
+      subs[i].at = at;
+    }
+  }
+
+  function showSubtitle(s, t) {
+    if (t < 0 || !s.subWords.length) return;
+    timeWords(s);
+    let lit = -1;
+    s.subWords.forEach((w, i) => { if (w.at !== undefined && w.at <= t) lit = i; });
+    renderSubtitle(s, lit);
+  }
+
+  function renderSubtitle(s, lit) {
+    const chunk = lit < 0 ? 0 : s.subWords[lit].chunk;
+    if (s.sub && s.sub.chunk === chunk && s.sub.lit === lit) return;
+    s.sub = { chunk, lit };
+    const said = [], later = [];
+    s.subWords.forEach((w, i) => { if (w.chunk === chunk) (i <= lit ? said : later).push(w.text); });
+    const el = $("subtitle");
+    el.replaceChildren();
+    if (said.length) el.append(said.join(" "));
+    if (said.length && later.length) el.append(" ");
+    if (later.length) { const span = document.createElement("span"); span.className = "later"; span.textContent = later.join(" "); el.append(span); }
+    el.classList.add("on");
+  }
+
+  const hideSubtitle = () => $("subtitle").classList.remove("on");
 
   // ---- Speaking -------------------------------------------------------------
   // Azure's visemes and word times are estimates. On HD voices they keep the
@@ -504,6 +606,7 @@
   async function speak() {
     stop();
     endGesture();
+    hideSubtitle();
     const raw = $("text").value.trim();
     if (!raw) return;
     const voice = VOICE;
@@ -528,10 +631,10 @@
     const config = sdk.SpeechConfig.fromAuthorizationToken(auth.token, auth.region);
     config.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Raw24Khz16BitMonoPcm;
     const synth = new sdk.SpeechSynthesizer(config, null); // no SDK playback: the page plays it
-    const { ssml, tags } = buildSsml(raw, voice);
+    const { ssml, tags, words } = buildSsml(raw, voice);
 
     const s = session = {
-      synth, tags, visemes: [], words: [], events: [], env: [], sources: [],
+      synth, tags, subWords: words, sub: null, visemes: [], words: [], events: [], env: [], sources: [],
       pending: [], oddByte: null, receivedMs: 0, synthDone: false, totalMs: 0,
       started: false, startAt: 0, nextAt: 0, done: false, laughing: false, expr: 0,
     };
@@ -765,6 +868,7 @@
     const t = audioNow(s);
     resolveTags(s);
     while (s.events.length && s.events[0].ms <= t) s.events.shift().run();
+    showSubtitle(s, t);
     if (s.synthDone && t >= s.totalMs + 100) { finish(s); return; }
     let id = 0;
     if (t >= 0 && loudNear(s, t, 20)) id = s.laughing ? (Math.floor(t / 110) % 2 ? 2 : 1) : visemeFor(s, t);
@@ -782,6 +886,9 @@
     setTalking(false);
     $("speak").disabled = false;
     $("stop").disabled = true;
+    // The last line stays a moment, fully lit, then fades.
+    if (s.sub && !s.stopped) renderSubtitle(s, s.subWords.length - 1);
+    setTimeout(() => { if (session === s) hideSubtitle(); }, 1200);
     const ended = performance.now();
     setTimeout(() => {
       if (picked.at > ended) return; // a try-out button was pressed meanwhile
@@ -793,7 +900,9 @@
     if (!session || session.done) return;
     for (const src of session.sources) { try { src.stop(); } catch (_) {} }
     try { session.synth.close(); } catch (_) {}
+    session.stopped = true;
     finish(session);
+    hideSubtitle();
   }
 
   // ---- Try-out buttons ------------------------------------------------------

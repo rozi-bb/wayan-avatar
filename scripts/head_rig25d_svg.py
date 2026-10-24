@@ -12,12 +12,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import head_rig25d as hr  # noqa: E402
-import turn_morph as tm  # noqa: E402
+import svg_tools as tools  # noqa: E402
 import head_turn as ht  # noqa: E402
 
 
 def frame(h, v):
-    master = tm.svg_paths("assets/vector/wayan_master.svg")
+    master = tools.svg_paths("assets/vector/wayan_master.svg")
     body = "".join(f'<path fill="rgb{f}" d="{d}"/>' for i, (f, d) in enumerate(master) if i >= 26)
     layers = []
     for layer, idx in hr.LAYERS:

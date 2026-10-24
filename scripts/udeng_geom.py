@@ -25,7 +25,7 @@ from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import turn_morph as tm  # noqa: E402
+import svg_tools as tools  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets/vector/udeng_slip.svg"
@@ -47,7 +47,7 @@ TOL = 0.4           # outline simplification (SVG units)
 
 
 def poly(d):
-    p = Polygon(tm.polyline(d, step=1.0))
+    p = Polygon(tools.polyline(d, step=1.0))
     return p if p.is_valid else p.buffer(0)
 
 
@@ -81,8 +81,8 @@ def right_side(hair9):
 
 
 def main():
-    master = tm.svg_paths("assets/vector/wayan_master.svg")
-    bare = tm.svg_paths("assets/vector/bare_head_raw.svg")
+    master = tools.svg_paths("assets/vector/wayan_master.svg")
+    bare = tools.svg_paths("assets/vector/bare_head_raw.svg")
     hair9 = poly(master[9][1])
     pieces = [(master[i][0], poly(master[i][1]).difference(hair9)) for i in (1, 2, 8)]
 

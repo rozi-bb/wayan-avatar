@@ -30,7 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import rive_mcp as m  # noqa: E402
-import turn_morph as tm  # noqa: E402  (SVG parsing, resampling, palette)
+import svg_tools as tools  # noqa: E402
 
 HEADLOOK = "0-2127"
 CACHE = Path(__file__).with_name(".head25.json")
@@ -47,7 +47,7 @@ LAYERS = [
 SKIN_TOP = 330           # under the udeng band at every pose
 FOLD_EDGE = (296.0, 0.0)  # SVG x where the long fold meets the udeng's left edge
 FOLD_LEN = 719.0 - 296.0  # its length across, to the knot
-PIVOT = {"Fold": (FOLD_EDGE[0] - tm.HEAD_POS[0], 0.0)}  # group origins (HeadLook units), else 0,0
+PIVOT = {"Fold": (FOLD_EDGE[0] - tools.HEAD_POS[0], 0.0)}  # group origins (HeadLook units), else 0,0
 # Face edges (SVG units, measured on the master outline) and the heights where the skin
 # bulges past them under the ears and flower; those bulges are cut back to the edge.
 SKIN_LEFT, LEFT_BAND = 300.0, (330.0, 745.0)     # under the udeng end, sideburn and his right ear
@@ -56,7 +56,7 @@ SKIN_RIGHT, RIGHT_BAND = 1040.0, (330.0, 750.0)  # under the udeng end, the flow
 
 def skin_commands():
     """The skin outline, smoothed through 96 points, top flattened and ear bulges trimmed."""
-    pts = tm.resample(tm.polyline(tm.svg_paths("assets/vector/wayan_master.svg")[0][1]), 96)
+    pts = tools.resample(tools.polyline(tools.svg_paths("assets/vector/wayan_master.svg")[0][1]), 96)
     out = []
     for x, y in pts:
         y = max(y, SKIN_TOP)
@@ -65,14 +65,14 @@ def skin_commands():
         if RIGHT_BAND[0] <= y <= RIGHT_BAND[1]:
             x = min(x, SKIN_RIGHT)
         out.append((x, y))
-    return tm.commands(out)
+    return tools.commands(out)
 
 
 def raw_commands(d):
     """Original master path data as Rive commands in HeadLook units (no resampling)."""
     import re
     tokens = re.findall(r"[MLCZz]|-?\d*\.?\d+(?:e-?\d+)?", d)
-    pt = lambda x, y: (round(float(x) - tm.HEAD_POS[0], 2), round(float(y) - tm.HEAD_POS[1], 2))
+    pt = lambda x, y: (round(float(x) - tools.HEAD_POS[0], 2), round(float(y) - tools.HEAD_POS[1], 2))
     out, i = [], 0
     while i < len(tokens):
         t = tokens[i]
@@ -96,14 +96,14 @@ def raw_commands(d):
 
 
 def build(call):
-    master = tm.svg_paths("assets/vector/wayan_master.svg")
+    master = tools.svg_paths("assets/vector/wayan_master.svg")
     shapes = []
     for layer, idx in LAYERS:
         for k, i in enumerate(idx):
             fill, d = master[i]
             cmds = skin_commands() if layer == "Skin" else raw_commands(d)
             shapes.append({"name": f"H25_{layer}_{k}", "parentId": HEADLOOK, "x": 0, "y": 0,
-                           "paints": [{"paintType": "fill", "color": tm.colour(fill)}],
+                           "paints": [{"paintType": "fill", "color": tools.colour(fill)}],
                            "paths": [{"name": "Path", "commands": cmds}]})
     r = call("path_editor", {"command": "createShapes", "data": {"createShapes": {"shapes": shapes}}})
     if r.get("errors"):

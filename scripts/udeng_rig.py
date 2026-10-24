@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import rive_mcp as m  # noqa: E402
-import turn_morph as tm  # noqa: E402
+import svg_tools as tools  # noqa: E402
 
 HEADLOOK = "0-2127"
 H25 = json.loads(Path(__file__).with_name(".head25.json").read_text())
@@ -35,14 +35,14 @@ G = H25["groups"]
 CACHE = Path(__file__).with_name(".udeng.json")
 OLD_UDENG = ["0-14062", "0-14100", "0-14127"]  # H25_Udeng_0..2 = master 1, 2, 8 (H25_Udeng_3 is the hair)
 KNOT, FOLD = ["0-14178", "0-14157"], ["0-14196"]
-PIVOT = (1250.0 - tm.HEAD_POS[0], 620.0 - tm.HEAD_POS[1])  # HeadLook units
+PIVOT = (1250.0 - tools.HEAD_POS[0], 620.0 - tools.HEAD_POS[1])  # HeadLook units
 HEAD_X, HEAD_Y = "0-2259", "0-2261"                      # FaceVM headX / headY
 UDENG_X, UDENG_Y = "0-14415", "0-14475"                  # converters turn4_udeng_x / _y
 
 
 def commands(d):
     pts = [tuple(map(float, p.split())) for p in re.findall(r"(-?[\d.]+ -?[\d.]+)", d)]
-    loc = [(round(x - tm.HEAD_POS[0], 2), round(y - tm.HEAD_POS[1], 2)) for x, y in pts]
+    loc = [(round(x - tools.HEAD_POS[0], 2), round(y - tools.HEAD_POS[1], 2)) for x, y in pts]
     return ([{"commandType": "moveTo", "x": loc[0][0], "y": loc[0][1]}]
             + [{"commandType": "lineTo", "x": x, "y": y} for x, y in loc[1:]] + [{"commandType": "close"}])
 
@@ -64,11 +64,11 @@ def wrap(call, name, members, origin):
 
 
 def build(call):
-    pieces = tm.svg_paths("assets/vector/udeng_slip.svg")
+    pieces = tools.svg_paths("assets/vector/udeng_slip.svg")
     names = ["UdengSlip_0", "UdengSlip_1", "UdengSlip_2", "H25_BareHair", "H25_BareSkin"]
     parents = [G["Udeng"]] * 3 + [H25["head"]] * 2
     shapes = [{"name": n, "parentId": p, "x": 0, "y": 0,
-               "paints": [{"paintType": "fill", "color": tm.colour(f)}],
+               "paints": [{"paintType": "fill", "color": tools.colour(f)}],
                "paths": [{"name": "Path", "commands": commands(d)}]}
               for n, p, (f, d) in zip(names, parents, pieces)]
     # skin first, so the hair lands in front of it; the udeng pieces bottom to top
@@ -114,13 +114,13 @@ def build(call):
 def bare(call):
     """Replace the bare hair and skin shapes in Head25_Bare with the current udeng_slip.svg."""
     ids = json.loads(CACHE.read_text())
-    pieces = tm.svg_paths("assets/vector/udeng_slip.svg")
+    pieces = tools.svg_paths("assets/vector/udeng_slip.svg")
     call("delete_objects", {"objectIds": [ids["shapes"]["H25_BareHair"], ids["shapes"]["H25_BareSkin"]]})
     for name, k in (("H25_BareSkin", 4), ("H25_BareHair", 3)):  # the hair lands in front
         f, d = pieces[k]
         r = call("path_editor", {"command": "createShapes", "data": {"createShapes": {"shapes": [{
             "name": name, "parentId": ids["Bare"], "x": 0, "y": 0,
-            "paints": [{"paintType": "fill", "color": tm.colour(f)}],
+            "paints": [{"paintType": "fill", "color": tools.colour(f)}],
             "paths": [{"name": "Path", "commands": commands(d)}]}]}}})
         if r.get("errors"):
             sys.exit(str(r)[:400])

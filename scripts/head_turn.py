@@ -9,9 +9,9 @@ a little, the flower (with the ear it is tucked behind) a little, Wayan's right
 ear against the turn. The rig's eyes, brows, nose and mouth slide the most, the
 far eye narrows. Nothing is swapped and nothing bends, so every frame is smooth.
 
-Earlier tries, all rejected: bending the head with bones (turn_skin.py, dented
-cheek), swapping in drawn 3/4 heads (head34_to_rive.py, choppy), morphing two
-drawings (turn_morph.py, muddled in between).
+Earlier tries, all rejected and removed (see git history before the 2026-10-24
+cleanup): bending the head with bones (dented cheek), swapping in drawn 3/4 heads
+(choppy), morphing two drawings (muddled in between).
 
     python3 scripts/head_turn.py preview assets/preview/head_turn 0,0,0 1,0,0 ...
         sets the parts in the editor for each h,v,t pose, captures, restores

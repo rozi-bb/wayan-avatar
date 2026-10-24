@@ -43,7 +43,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import rive_mcp as m  # noqa: E402
-import turn_morph as tm  # noqa: E402
+import svg_tools as tools  # noqa: E402
 
 HEADLOOK, HEAD, BODY, WAYAN = "0-2127", "0-729", "0-730", "0-17"
 BODY_KEYS = {"Sway": [15], "Idle": [17]}   # Body's own keys (rotation, scale y) that BodyFront copies
@@ -72,7 +72,7 @@ def values(call, ids, keys):
 
 def hand_commands(d):
     """A drawing path in Hand_R_Udeng space: wrist at 0, fingers along +x, the drawing's right on +y."""
-    pts = tm.polyline(d, step=3.0)
+    pts = tools.polyline(d, step=3.0)
     pts = [(x, min(y, HAND_CUT)) for x, y in pts]  # flatten everything below the cut onto it
     loc = [(round(-(y - HAND_WRIST[1]) * HAND_SCALE, 2), round((x - HAND_WRIST[0]) * HAND_SCALE, 2)) for x, y in pts]
     out = [{"commandType": "moveTo", "x": loc[0][0], "y": loc[0][1]}]
@@ -113,7 +113,7 @@ def build(call):
     straighten(call, copies[1])
 
     # the Recraft hand, behind the sleeve
-    paths = tm.svg_paths(HAND_SVG)
+    paths = tools.svg_paths(HAND_SVG)
     hand = empty_group(call, "Hand_R_Udeng", forearm, WRIST[0], WRIST[1], 0.0)
     for k in HAND_PATHS:  # bottom to top: each new shape lands on top
         f, d = paths[k]

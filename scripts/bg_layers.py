@@ -3,8 +3,8 @@
 
     python3 scripts/bg_layers.py
 
-Reads web/bg_rumah.svg (one flat stack of vectorized paths, path 0 is the
-sky rectangle) and writes these SVGs next to it:
+Reads assets/vector/bg_rumah.svg (one flat stack of vectorized paths, path 0 is the
+sky rectangle) and writes these SVGs into web/:
 
   bg_back.svg      paths drawn before the tree (wall, floor, back of the bale)
   bg_tree.svg      the frangipani tree, cropped to TREE_BOX so it can sway
@@ -48,7 +48,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "web" / "bg_rumah.svg"
+SRC = ROOT / "assets" / "vector" / "bg_rumah.svg"
+OUT = ROOT / "web"
 
 NOTCH_CENTRE = [481, 482, 483, 484]
 TREE = [*range(137, 163), *range(198, 212), *range(322, 336), *range(337, 346),
@@ -176,7 +177,7 @@ def main():
     }
     out.update({f"bg_plant_{k}.svg": plant_svg(paths, pot) for k, pot in POTS.items()})
     for name, text in out.items():
-        (SRC.parent / name).write_text(text)
+        (OUT / name).write_text(text)
         print(f"wrote web/{name} ({len(text) // 1024} KB)")
     print(f"tree box in % of picture: left {x / W:.4%} top {y / H:.4%} "
           f"width {w / W:.4%} height {h / H:.4%}")

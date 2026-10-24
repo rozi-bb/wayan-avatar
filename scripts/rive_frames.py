@@ -55,6 +55,8 @@ def main():
     ap.add_argument("frames", help="comma-separated frame numbers")
     ap.add_argument("--size", type=int, default=600, help="long edge in px")
     ap.add_argument("--bg", default="#ff242424", help="background #aarrggbb")
+    ap.add_argument("--hide", default="", help="comma-separated ids to hide while capturing: parts that "
+                    "data binds hide at runtime (the editor does not apply binds)")
     args = ap.parse_args()
 
     call = m.connect("rive-frames")
@@ -97,10 +99,14 @@ def main():
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    rest = call("query_property_values", {"propertyKeys": {
-        obj: [p for (o, p) in tracks if o == obj] for (obj, _) in tracks}})
+    hide = [i for i in args.hide.split(",") if i]
+    keyed = {obj: [p for (o, p) in tracks if o == obj] for (obj, _) in tracks}
+    for i in hide:
+        keyed.setdefault(i, []).append(18)
+    rest = call("query_property_values", {"propertyKeys": keyed})
     rest = {(o, int(p)): v for o, d in rest.get("values", rest).items() for p, v in d.items()}
     try:
+        put({(i, 18): 0 for i in hide})
         shot("d0.png")
         for f in map(int, args.frames.split(",")):
             put({kp: round(value_at(t, f), 3) for kp, t in tracks.items()})

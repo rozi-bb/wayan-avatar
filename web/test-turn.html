@@ -21,10 +21,12 @@
   // Frame-by-frame review of the head turn in the real runtime (binds only run here).
   //   ?mode=grid           fixed headX/headY poses, eyes looking the same way
   //   ?mode=seq&x=0.8&y=0  one idle glance as index.html plays it, every frame at 60 fps
-  //   options: share, spring, zeta (damping, 1 = no overshoot; defaults match index.html), frames, back (frame the eyes return), every, sink
+  //   ?mode=act&action=3   a gesture on the Aksi layer (3 = udeng), snapped as it plays in real time
+  //   options: share, spring, zeta (damping, 1 = no overshoot; defaults match index.html), frames, back (frame the eyes return), every, sink,
+  //            ms (act: how long to record), crop (x,y,w,h as fractions of the canvas), bg (hex backdrop, e.g. 6ba8d2)
   // Head crop, as fractions of the canvas (the artboard fills it).
   const q = new URLSearchParams(location.search);
-  const CROP = [0.215, 0.085, 0.625, 0.449];
+  const CROP = q.get("crop") ? q.get("crop").split(",").map(Number) : [0.215, 0.085, 0.625, 0.449];
   const HEAD_SHARE = +(q.get("share") || 1), EYE_RETURN = 0.35, HEAD_SPRING = +(q.get("spring") || 8), ZETA = +(q.get("zeta") || 0.75);
   const canvas = document.getElementById("live");
   let vmi;
@@ -42,7 +44,9 @@
     const [x, y, w, h] = CROP.map((f, i) => f * (i % 2 ? canvas.height : canvas.width));
     const c = document.createElement("canvas");
     c.width = w; c.height = h;
-    c.getContext("2d").drawImage(canvas, x, y, w, h, 0, 0, w, h);
+    const cx = c.getContext("2d");
+    if (q.get("bg")) { cx.fillStyle = "#" + q.get("bg"); cx.fillRect(0, 0, w, h); } // white parts show on a backdrop
+    cx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
     const f = document.createElement("figure"), cap = document.createElement("figcaption");
     cap.textContent = label;
     f.append(c, cap);
@@ -85,6 +89,20 @@
     }
   }
 
+  // A gesture as the page plays it: action on, recorded on every animation frame for `ms`, then back to rest.
+  // Sway and Idle keep running, so the front forearm can be checked against the body while they move.
+  async function act() {
+    const action = +(q.get("action") || 3), ms = +(q.get("ms") || 3000), every = +(q.get("every") || 1);
+    const g = section(`action ${action}, ${ms} ms`, +(q.get("cols") || 8));
+    set("action", action);
+    const t0 = performance.now();
+    for (let n = 0; performance.now() - t0 < ms; n++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      if (n % every === 0) snap(g, `t${String(Math.round(performance.now() - t0)).padStart(4, "0")}`);
+    }
+    set("action", 0);
+  }
+
   const r = new rive.Rive({
     src: "wayan.riv", canvas, stateMachines: "State Machine 1", autoplay: true, autoBind: true,
     onLoad: async () => {
@@ -98,7 +116,8 @@
         await wait(200);
       }
       await wait(800);
-      await (q.get("mode") === "seq" ? seq() : grid());
+      const mode = q.get("mode");
+      await (mode === "seq" ? seq() : mode === "act" ? act() : grid());
       document.title = "done";
     },
   });

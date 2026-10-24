@@ -1,0 +1,20 @@
+{
+ "shapes": {
+  "UdengSlip_2": "0-15305",
+  "UdengSlip_1": "0-15225",
+  "UdengSlip_0": "0-15083",
+  "H25_BareHair": "0-21998",
+  "H25_BareSkin": "0-21913"
+ },
+ "UdengSlip": "0-15343",
+ "KnotSlip": "0-15344",
+ "FoldSlip": "0-15345",
+ "Bare": "0-15346",
+ "ArmFront_R": "0-15959",
+ "ForeFront_R": "0-15960",
+ "HandFront_R": "0-15961",
+ "ArmFFront_R": "0-15971",
+ "Hand_R_Udeng": "0-15986",
+ "UpperRaise_R": "0-24478",
+ "BodyFront": "0-21156"
+}

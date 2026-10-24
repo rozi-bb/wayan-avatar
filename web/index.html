@@ -119,28 +119,26 @@
 <script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@1.52.0/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
 <script>
   // ---- Voices ---------------------------------------------------------------
-  // hd: Azure HD voice -> reads [laughter] in any language and picks the
-  //     emotion up from the text itself. Emotion markers ([happy], [surprised])
-  //     are deliberately not sent: they stretched the words next to them
-  //     ("Hi" 280 -> 600 ms, "Bali" 200 -> 400 ms with odd vowels).
-  // pitch: standard neural voices only (HD voices ignore <prosody>).
+  // Brian, picked by Rozi from the male English Dragon HD voices Azure lists for this region.
+  // They read [laughter] in any language and pick the emotion up from the text itself.
+  //     Emotion markers ([happy], [surprised]) are deliberately not sent: they stretched
+  //     the words next to them ("Hi" 280 -> 600 ms, "Bali" 200 -> 400 ms with odd vowels).
+  //     <prosody> is ignored by HD voices, so there is no pitch setting.
   // tested: viseme output already confirmed for this voice.
-  const VOICES = [
-    { id: "en-US-Andrew:DragonHDLatestNeural", lang: "en-US", hd: true, tested: true,
-      label: "Inggris · Andrew HD — hangat, emosi mengikuti isi kalimat" },
-    { id: "en-us-goldenspark:DragonHDOmniLatestNeural", lang: "en-US", hd: true,
-      label: "Inggris · Goldenspark HD Omni — energik" },
-    { id: "en-US-JasonNeural", lang: "en-US", pitch: "+12%",
-      label: "Inggris · Jason, nada dinaikkan — terdengar lebih muda" },
-    { id: "id-ID-Ardi:DragonHDLatestNeural", lang: "id-ID", hd: true, tested: true,
-      label: "Indonesia · Ardi HD — natural, bisa tertawa" },
-    { id: "id-ID-ArdiNeural", lang: "id-ID", pitch: "+12%",
-      label: "Indonesia · Ardi, nada dinaikkan — terdengar lebih muda" },
-  ];
-  const SAMPLES = {
-    "en-US": "[senyum] Hi! I'm Wayan, from Bali. [kaget] Whoa, you came to visit! [ketawa] Just kidding, I knew you would. [jempol] Great choice!",
-    "id-ID": "[senyum] Halo! Aku Wayan dari Bali. [kaget] Wah, kamu datang! [ketawa] Bercanda kok. [jempol] Pilihan yang keren!",
+  // Dragon HD temperature (0-1): lower is steadier, higher varies more per take.
+  // Pinned at 1, Azure's documented default, which Rozi picked.
+  const TEMPERATURE = 1;
+  const voice = (id, group, note = "", extra = {}) => {
+    const [l, country, ...rest] = id.split(":")[0].split("-");
+    const name = rest.join("-").replace(/^./, (c) => c.toUpperCase());
+    const accent = country.toUpperCase() === "US" ? "" : ` (${country.toUpperCase()})`;
+    return { id, lang: `${l}-${country.toUpperCase()}`, hd: true, group,
+             label: name + accent + (note ? " — " + note : ""), ...extra };
   };
+  const VOICES = [
+    voice("en-US-Brian:DragonHDLatestNeural", "Dragon HD", "", { tested: true }),
+  ];
+  const SAMPLE = "[senyum] Hi! I'm Wayan, from Bali. [kaget] Whoa, you came to visit! [ketawa] Just kidding, I knew you would. [jempol] Great choice!";
 
   // Tag -> FaceVM.expression, or a gesture. Only [ketawa] also changes the audio (an HD laugh).
   const TAGS = {
@@ -427,15 +425,19 @@
 
   // ---- UI -------------------------------------------------------------------
   const setStatus = (msg, isError = false) => { $("status").textContent = msg; $("status").className = "status" + (isError ? " error" : ""); };
-  VOICES.forEach((v, i) => $("voice").add(new Option(v.label + (v.tested ? "" : " (viseme belum diuji)"), i)));
+  const groups = {};
+  VOICES.forEach((v, i) => {
+    if (!groups[v.group]) { groups[v.group] = document.createElement("optgroup"); groups[v.group].label = v.group; $("voice").append(groups[v.group]); }
+    groups[v.group].append(new Option((v.tested ? "✓ " : "") + v.label, i)); // ✓ = viseme output confirmed
+  });
   const currentVoice = () => VOICES[Number($("voice").value)];
-  // English HD voices can switch accent mid-sentence with <lang>; standard voices can't.
+  // English HD voices can switch accent mid-sentence with <lang>.
   const canLocalize = (v) => v.hd && v.lang.startsWith("en");
   const showVoice = () => {
     const v = currentVoice();
     $("voiceId").textContent = v.id;
     $("localNamesRow").style.visibility = canLocalize(v) ? "visible" : "hidden";
-    if (!$("text").value || Object.values(SAMPLES).includes($("text").value)) $("text").value = SAMPLES[v.lang];
+    if (!$("text").value || $("text").value === SAMPLE) $("text").value = SAMPLE;
   };
   $("voice").onchange = showVoice;
   showVoice();
@@ -459,9 +461,8 @@
   // Azure's wordBoundary.textOffset indexes that same string, which is how tags meet audio time.
   function buildSsml(raw, voice) {
     const head = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" ` +
-      `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${voice.lang}"><voice name="${voice.id}">` +
-      (voice.pitch ? `<prosody pitch="${voice.pitch}">` : "");
-    const tail = (voice.pitch ? "</prosody>" : "") + "</voice></speak>";
+      `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${voice.lang}"><voice name="${voice.id}" parameters="temperature=${TEMPERATURE}">`;
+    const tail = "</voice></speak>";
     let body = "";
     let plain = 0; // length of spoken text so far, for voices that send no word positions
     const tags = [];

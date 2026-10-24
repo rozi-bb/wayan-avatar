@@ -161,7 +161,7 @@ Tujuan: Wayan bicara di browser dari teks yang diketik, mulut sinkron.
 - [x] Tag dijadwalkan lewat posisi kata. Perbaikan dari uji nyata: kata sesudah penanda emosi HD dilaporkan di awal penandanya → cari dari posisi tag, bukan sesudah penanda; tag di awal teks langsung aktif (kata pertama bisa ber-offset −1)
 - [x] **Ardi HD (id-ID) hampir tidak mengirim posisi kata** → cadangan: perkiraan proporsional dari posisi tag di teks (tanpa durasi tawa) lalu ditempel ke jeda diam terdekat di aliran viseme. Hasil uji: `[kaget]` tepat sebelum "Wah", `[ketawa]` tepat selama tawa
 - [x] Sesudah tawa wajah kembali **senyum** (bukan ekspresi sebelumnya)
-- [ ] Pilih suara final (dengar langsung). Kandidat di halaman: Andrew HD, Goldenspark HD Omni, Jason+pitch (Inggris); Ardi HD, Ardi+pitch (Indonesia)
+- [ ] Pilih suara final (dengar langsung). Halaman kini hanya berisi Brian (en-US-Brian:DragonHDLatestNeural), dipilih Rozi dari 3 kandidat terakhir (Brian, Ryan GB, Tyler). Temperature dikunci di 1. Diuji 2026-10-24 dengan kalimat contoh: 99 viseme dan 18 batas kata masuk; dari 587 sampel per 15 ms, mulut terbuka saat hening 0 dan tertutup saat bersuara 0; [senyum] sebelum suara pertama, [kaget] dan [jempol] jatuh di jeda sebelum kalimatnya. Tawa Brian hanya "hah" ±0,1 detik yang tetap punya viseme, jadi halaman memakai cadangan: wajah tertawa 0,8 detik di jeda lalu senyum
 - [ ] Putuskan bahasa: PRD bilang Inggris, contoh Rozi berbahasa Indonesia
 - [ ] Halaman QC: 22 viseme, mulut kita vs gambar acuan Azure
 - [ ] Uji pakai 9 kalimat tes dari vault

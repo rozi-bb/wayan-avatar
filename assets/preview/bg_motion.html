@@ -19,6 +19,12 @@
   .layer { position: absolute; inset: 0; background: center / 100% 100% no-repeat; }
   .back { background-image: url(../../web/bg_back.svg); }
   .front { background-image: url(../../web/bg_front.svg); }
+  .pots { background-image: url(../../web/bg_pots.svg); }
+  /* The potted plants are their own layers now (bg_sway.html shows them moving); here they stand still. */
+  .plant { position: absolute; background: center / 100% 100% no-repeat; }
+  .plant.l { background-image: url(../../web/bg_plant_l.svg); left: 4.3602%; top: 73.3101%; width: 9.9409%; height: 9.1636%; }
+  .plant.m { background-image: url(../../web/bg_plant_m.svg); left: 29.2834%; top: 64.8184%; width: 10.6023%; height: 10.1284%; }
+  .plant.r { background-image: url(../../web/bg_plant_r.svg); left: 71.7051%; top: 65.9160%; width: 9.9042%; height: 8.9536%; }
 
   /* Tree box from scripts/bg_layers.py; it sways round the trunk where it leaves the left edge (-40, 1000). */
   .tree { position: absolute; left: -9.0158%; top: 23.4375%; width: 40.5710%; height: 28.3203%;
@@ -52,6 +58,8 @@
         <div class="layer back"></div>
         <div class="tree"></div>
         <div class="layer front"></div>
+        <div class="plant l"></div><div class="plant m"></div><div class="plant r"></div>
+        <div class="layer pots"></div>
       </div>
       <img class="wayan" src="backgrounds/wayan.png" alt="">
     </div></div>

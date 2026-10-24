@@ -19,11 +19,20 @@
   .layer { position: absolute; inset: 0; background: center / 100% 100% no-repeat; }
   .back { background-image: url(bg_back.svg); }
   .front { background-image: url(bg_front.svg); }
-  /* Tree box from bg_layers.py; it sways round the trunk where it leaves the left edge (-40, 1000). */
+  .pots { background-image: url(bg_pots.svg); }
+  /* Tree box from bg_layers.py; it sways round the trunk where it leaves the left edge (-40, 1000),
+     in uneven gusts so it never settles into a metronome. */
   .tree-box { position: absolute; left: -9.0158%; top: 23.4375%; width: 40.5710%; height: 28.3203%; transform-origin: 14.81% 89.66%; }
   .tree { position: absolute; inset: 0; background: url(bg_tree.svg) center / 100% 100% no-repeat;
-          transform-origin: 14.81% 89.66%; animation: sway 5.6s cubic-bezier(.45,0,.55,1) infinite alternate; will-change: transform; }
-  @keyframes sway { from { transform: rotate(-1.2deg); } to { transform: rotate(1.2deg); } }
+          transform-origin: 14.81% 89.66%; animation: sway 9s ease-in-out infinite; will-change: transform; }
+  @keyframes sway { 0%, 100% { transform: rotate(-2.6deg); } 24% { transform: rotate(2.4deg); }
+                    42% { transform: rotate(0.2deg); } 68% { transform: rotate(3.2deg); } 86% { transform: rotate(-1deg); } }
+  /* Plant boxes and stem pivots from bg_layers.py; each pot keeps its own time so they never move as one. */
+  .plant { position: absolute; background: center / 100% 100% no-repeat; animation: leaf 6.4s ease-in-out infinite; will-change: transform; }
+  .plant.l { background-image: url(bg_plant_l.svg); left: 4.3602%; top: 73.3101%; width: 9.9409%; height: 9.1636%; transform-origin: 48.72% 98.37%; animation-delay: -1.4s; }
+  .plant.m { background-image: url(bg_plant_m.svg); left: 29.2834%; top: 64.8184%; width: 10.6023%; height: 10.1284%; transform-origin: 50.48% 96.19%; animation-duration: 7.3s; animation-delay: -4.2s; }
+  .plant.r { background-image: url(bg_plant_r.svg); left: 71.7051%; top: 65.9160%; width: 9.9042%; height: 8.9536%; transform-origin: 51.28% 97.09%; animation-duration: 5.8s; animation-delay: -2.7s; }
+  @keyframes leaf { 0%, 100% { transform: rotate(-3.5deg); } 30% { transform: rotate(4deg); } 52% { transform: rotate(-0.5deg); } 76% { transform: rotate(3deg); } }
   /* Each cloud rides a full-width track from just off the left edge to just off the right. */
   .track { position: absolute; left: 0; width: 100%; animation: drift linear infinite; will-change: transform; }
   .cloud { position: absolute; right: 100%; width: var(--w); aspect-ratio: 300 / 120; background: url(bg_cloud.svg) center / contain no-repeat; }
@@ -33,7 +42,7 @@
   @keyframes drift { from { transform: translateX(0); } to { transform: translateX(calc(100% + var(--w))); } }
   /* A blossom from the tree (bg_flower.svg), moved by dropBlossom in picture units. */
   .blossom { position: absolute; left: 0; top: 0; width: 6.9%; aspect-ratio: 92 / 98; background: url(bg_flower.svg) center / contain no-repeat; pointer-events: none; will-change: transform, opacity; }
-  @media (prefers-reduced-motion: reduce) { .tree, .track { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .tree, .track, .plant { animation: none; } }
   /* Soft shadow under the sandals, measured for Wayan at 66%: soles 9.5% from the bottom, feet 35-65% across. */
   .shadow { position: absolute; left: 50%; bottom: 7.6%; width: 38%; aspect-ratio: 6 / 1; translate: -50% 0;
             background: radial-gradient(closest-side, rgba(110,80,50,.3) 70%, rgba(110,80,50,0)); }
@@ -68,6 +77,10 @@
       <div class="layer back"></div>
       <div class="tree-box"><div class="tree"></div></div>
       <div class="layer front"></div>
+      <div class="plant l"></div>
+      <div class="plant m"></div>
+      <div class="plant r"></div>
+      <div class="layer pots"></div>
     </div>
     <div class="shadow"></div>
     <canvas id="c" width="840" height="1260"></canvas>

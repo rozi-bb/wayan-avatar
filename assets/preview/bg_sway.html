@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pohon dan Pot Bergoyang</title>
+<style>
+  body { margin: 0; padding: 24px 16px; background: #1d2330; color: #e8ecf2; font: 15px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 28px 0 8px; }
+  p { margin: 0 0 14px; color: #aab4c3; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .col { flex: 0 1 420px; min-width: 0; }
+  .col h3 { font-size: 14px; margin: 0 0 8px; color: #cfd7e3; }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; }
+  .controls input[type=range] { flex: 1 1 240px; }
+  button { font: inherit; padding: 6px 14px; border-radius: 999px; border: 1px solid #4a5468; background: #2a3242; color: #e8ecf2; cursor: pointer; }
+  code { color: #f5bf03; }
+
+  /* Same scene as web/index.html. */
+  .stage { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 24px; overflow: hidden; background: rgb(107,168,210); }
+  .stage img.wayan { position: absolute; left: 50%; bottom: 2%; width: 66%; transform: translateX(-50%); }
+  .scene { position: absolute; left: 0; top: 50%; width: 100%; aspect-ratio: 1331 / 2048; transform: translateY(-50%); }
+  .layer { position: absolute; inset: 0; background: center / 100% 100% no-repeat; }
+  .back { background-image: url(../../web/bg_back.svg); }
+  .front { background-image: url(../../web/bg_front.svg); }
+  .pots { background-image: url(../../web/bg_pots.svg); }
+  .tree-box { position: absolute; left: -9.0158%; top: 23.4375%; width: 40.5710%; height: 28.3203%; transform-origin: 14.81% 89.66%; }
+  .tree { position: absolute; inset: 0; background: url(../../web/bg_tree.svg) center / 100% 100% no-repeat;
+          transform-origin: 14.81% 89.66%; animation: sway 9s ease-in-out infinite; will-change: transform; }
+  @keyframes sway { 0%, 100% { transform: rotate(-2.6deg); } 24% { transform: rotate(2.4deg); }
+                    42% { transform: rotate(0.2deg); } 68% { transform: rotate(3.2deg); } 86% { transform: rotate(-1deg); } }
+  .plant { position: absolute; background: center / 100% 100% no-repeat; animation: leaf 6.4s ease-in-out infinite; will-change: transform; }
+  .plant.l { background-image: url(../../web/bg_plant_l.svg); left: 4.3602%; top: 73.3101%; width: 9.9409%; height: 9.1636%; transform-origin: 48.72% 98.37%; animation-delay: -1.4s; }
+  .plant.m { background-image: url(../../web/bg_plant_m.svg); left: 29.2834%; top: 64.8184%; width: 10.6023%; height: 10.1284%; transform-origin: 50.48% 96.19%; animation-duration: 7.3s; animation-delay: -4.2s; }
+  .plant.r { background-image: url(../../web/bg_plant_r.svg); left: 71.7051%; top: 65.9160%; width: 9.9042%; height: 8.9536%; transform-origin: 51.28% 97.09%; animation-duration: 5.8s; animation-delay: -2.7s; }
+  @keyframes leaf { 0%, 100% { transform: rotate(-3.5deg); } 30% { transform: rotate(4deg); } 52% { transform: rotate(-0.5deg); } 76% { transform: rotate(3deg); } }
+  .flat { position: absolute; inset: 0; background: url(../../web/bg_rumah.svg) center / 100% 100% no-repeat; }
+
+  /* A crop shows one spot of a frozen scene, zoomed. */
+  .sheet { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-width: 760px; }
+  #still { grid-template-columns: repeat(6, minmax(0, 1fr)); max-width: 1100px; }
+  .frame { background: #2a3242; border-radius: 10px; padding: 6px; }
+  .frame span { display: block; font-size: 12px; color: #aab4c3; margin: 0 0 4px; }
+  .crop { position: relative; width: 100%; overflow: hidden; border-radius: 6px; background: rgb(107,168,210); }
+  .crop .scene { top: 0; transform: none; }
+</style></head>
+<body>
+<h1>Pohon kamboja dan 3 pot bergoyang</h1>
+<p>Pohon dulu miring ±1,2°, sekarang −2,6° sampai +3,2° dalam embusan 9 detik yang tidak rata. Tiap tanaman pot miring −3,5° sampai +4°
+   dari pangkal batangnya, dengan irama sendiri (6,4 / 7,3 / 5,8 detik) supaya tidak bergerak serempak. Di belakang daun pot kiri,
+   dinding gerbang digambar ulang (bata, garis tiang, kolom merah, anak tangga) supaya tidak ada bekas lubang saat daun bergeser.
+   Ujung daun kecil yang terpotong tepi kiri pohon dibuang, karena saat pohon miring ke kanan ia tampak melayang di atas tajuk.</p>
+
+<div class="row">
+  <div class="col"><h3>Seperti di halaman (ukuran asli)</h3>
+    <div class="stage" id="live"><div class="scene">
+      <div class="layer back"></div><div class="tree-box"><div class="tree"></div></div><div class="layer front"></div>
+      <div class="plant l"></div><div class="plant m"></div><div class="plant r"></div><div class="layer pots"></div>
+    </div><img class="wayan" src="backgrounds/wayan.png" alt=""></div></div>
+  <div class="col"><h3>Geser waktu (tanpa Wayan)</h3>
+    <div class="controls">
+      <button id="play">⏸ Jeda</button>
+      <input type="range" id="t" min="0" max="36" step="0.05" value="0" aria-label="Waktu">
+      <code id="tl">0,00 s</code>
+    </div>
+    <div class="stage" id="scrub"><div class="scene">
+      <div class="layer back"></div><div class="tree-box"><div class="tree"></div></div><div class="layer front"></div>
+      <div class="plant l"></div><div class="plant m"></div><div class="plant r"></div><div class="layer pots"></div>
+    </div></div></div>
+</div>
+
+<h2>Gambar asli vs. diam (sudut 0°)</h2>
+<p>Kiri: gambar latar asli. Kanan: lapisan baru dengan tanaman di 0°. Putih di sela batang pot tengah dan kanan ternyata sisa
+   langit krem lama yang terlewat saat langit diganti biru; sekarang tembus ke langit biru, dan takik bibir pot tengah di antara
+   batang ditutup tanah. Di pot kiri, sela antardaun sekarang dinding krem polos (dulu ada potongan merah tua kecil yang akan ikut
+   bergoyang seperti balok menggantung).</p>
+<div class="sheet" id="still"></div>
+
+<h2>Frame per 0,5 detik, diperbesar</h2>
+<div class="sheet" id="frames"></div>
+
+<script>
+  // Spots in picture units (x, y, w, h); a crop is that spot of the scene, scaled to the frame width.
+  const SPOTS = { "pot kiri": [30, 1470, 190, 240], "pot tengah": [370, 1300, 190, 240], "pot kanan": [930, 1320, 190, 240],
+                  "pohon": [0, 470, 470, 600] };
+  const SCENE = document.querySelector("#scrub .scene").innerHTML;
+
+  function crop(spot, setup) {
+    const [x, y, w, h] = SPOTS[spot];
+    const box = document.createElement("div");
+    box.className = "crop";
+    box.style.aspectRatio = `${w} / ${h}`;
+    const scene = document.createElement("div");
+    scene.className = "scene";
+    scene.innerHTML = setup === "flat" ? '<div class="flat"></div>' : SCENE;
+    scene.style.width = `${1331 / w * 100}%`;
+    scene.style.left = `${-x / w * 100}%`;
+    scene.style.top = `${-y / h * 100}%`;
+    box.append(scene);
+    return box;
+  }
+  // Freeze every animation inside el at t seconds.
+  const freeze = (el, t) => el.getAnimations({ subtree: true }).forEach(a => { a.pause(); a.currentTime = t * 1000; });
+  const angle0 = (el) => el.querySelectorAll(".tree, .plant").forEach(n => { n.style.animation = "none"; });
+
+  function frame(label, spot, t) {
+    const f = document.createElement("div");
+    f.className = "frame";
+    f.innerHTML = `<span>${label}</span>`;
+    const c = crop(spot, t === "flat" ? "flat" : "scene");
+    f.append(c);
+    return [f, c];
+  }
+
+  const still = document.getElementById("still");
+  for (const spot of ["pot kiri", "pot tengah", "pot kanan"]) {
+    still.append(frame(`${spot} · asli`, spot, "flat")[0]);
+    const [f, c] = frame(`${spot} · 0°`, spot, 0);
+    angle0(c);
+    still.append(f);
+  }
+
+  const frames = document.getElementById("frames");
+  const shots = [];
+  for (let t = 0; t <= 9; t += 0.5) {
+    for (const spot of ["pot kiri", "pot tengah", "pot kanan", "pohon"]) {
+      const [f, c] = frame(`${t.toFixed(1).replace(".", ",")} s · ${spot}`, spot, t);
+      frames.append(f);
+      shots.push([c, t]);
+    }
+  }
+  requestAnimationFrame(() => shots.forEach(([c, t]) => freeze(c, t)));
+
+  const scrub = document.getElementById("scrub"), slider = document.getElementById("t"), label = document.getElementById("tl");
+  const play = document.getElementById("play");
+  let playing = false;
+  const show = (t) => { freeze(scrub, t); label.textContent = `${t.toFixed(2).replace(".", ",")} s`; };
+  slider.oninput = () => { playing = false; play.textContent = "▶ Putar"; show(+slider.value); };
+  play.onclick = () => {
+    playing = !playing;
+    play.textContent = playing ? "⏸ Jeda" : "▶ Putar";
+    if (playing) { const t0 = performance.now() - slider.value * 1000;
+      (function tick() { if (!playing) return; const t = ((performance.now() - t0) / 1000) % 36;
+        slider.value = t; show(t); requestAnimationFrame(tick); })(); }
+  };
+  requestAnimationFrame(() => play.click());
+</script>
+</body></html>
